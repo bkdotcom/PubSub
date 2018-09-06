@@ -1,0 +1,26 @@
+{
+	"name": "bdk/pubsub",
+	"description": "Publish / Subscribe / Event Manager",
+	"keywords": ["event", "manager", "eventmanager"],
+	"homepage": "http://github.com/bkdotcom/PubSub",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Brad Kent",
+			"email": "bkfake-github@yahoo.com",
+			"homepage": "http://www.bradkent.com/",
+			"role": "Developer"
+		}
+	],
+	"autoload": {
+		"psr-4": {
+			"bdk\\PubSub\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"classmap": ["tests"]
+	},
+	"require": {
+		"php": ">=5.4.0"
+	}
+}
