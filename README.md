@@ -19,3 +19,11 @@ See http://www.bradkent.com/php/pubsub for more information
 ### Usage
 
 See http://www.bradkent.com/php/pubsub
+
+### Tests / Quality
+![No Dependencies](https://img.shields.io/badge/dependencies-none-333333.svg)
+[![Build Status](https://img.shields.io/travis/bkdotcom/PubSub/master.svg)](https://travis-ci.org/bkdotcom/PubSub)
+
+### Changelog
+http://www.bradkent.com/php/pubsub#changelog
+
