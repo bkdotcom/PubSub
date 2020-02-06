@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2019 Brad Kent
+ * @copyright 2014-2020 Brad Kent
  * @version   v2.3
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -88,7 +88,7 @@ class Manager
      *
      * @param string $eventName The name of the event
      *
-     * @return boolean
+     * @return bool
      */
     public function hasSubscribers($eventName = null)
     {
@@ -161,7 +161,7 @@ class Manager
      *
      * @param string   $eventName event name
      * @param callable $callable  callable or closure factory
-     * @param integer  $priority  The higher this value, the earlier we handle event
+     * @param int      $priority  The higher this value, the earlier we handle event
      *
      * @return void
      */
@@ -249,7 +249,7 @@ class Manager
      *
      * @param mixed $val value to check
      *
-     * @return boolean
+     * @return bool
      */
     private function isClosureFactory($val)
     {
@@ -270,7 +270,7 @@ class Manager
             if (\is_string($mixed)) {
                 // methodName
                 $subscribers[] = array($eventName, array($interface, $mixed), 0);
-            } elseif (\count($mixed) == 2 && \is_int($mixed[1])) {
+            } elseif (\count($mixed) === 2 && \is_int($mixed[1])) {
                 // array('methodName', priority)
                 $subscribers[] = array($eventName, array($interface, $mixed[0]), $mixed[1]);
             } else {
