@@ -1,19 +1,24 @@
 <?php
 
+namespace bdk\PubSubTests;
+
 use bdk\PubSub\Event;
 use bdk\PubSub\Manager;
 use bdk\PubSub\SubscriberInterface;
+use PHPUnit\Framework\TestCase;
 
 /**
  * PHPUnit tests for Debug class
  */
-class ManagerTest extends \PHPUnit\Framework\TestCase
+class ManagerTest extends TestCase
 {
-    /* Some pseudo events */
-    const preFoo = 'pre.foo';
-    const postFoo = 'post.foo';
-    const preBar = 'pre.bar';
-    const postBar = 'post.bar';
+    /*
+        Some pseudo events
+    */
+    const PRE_FOO = 'pre.foo';
+    const POST_FOO = 'post.foo';
+    const PRE_BAR = 'pre.bar';
+    const POST_BAR = 'post.bar';
 
     /**
      * @var Manager
@@ -22,39 +27,44 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
 
     private $subscriber;
 
-    public function setUp()
+    /**
+     * This method is called before a test is executed.
+     *
+     * @return void
+     */
+    public function setUp(): void
     {
         $this->manager = $this->createManager();
         $this->subscriber = new TestSubscriber();
     }
 
-    public function tearDown()
+    /**
+     * This method is called after a test is executed.
+     *
+     * @return void
+     */
+    public function tearDown(): void
     {
         $this->manager = null;
         $this->subscriber = null;
     }
 
-    protected function createManager()
-    {
-        return new Manager();
-    }
-
     public function testInitialState()
     {
         $this->assertEquals(array(), $this->manager->getSubscribers());
-        $this->assertFalse($this->manager->hasSubscribers(self::preFoo));
-        $this->assertFalse($this->manager->hasSubscribers(self::postFoo));
+        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertFalse($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testSubscribe()
     {
-        $this->manager->subscribe('pre.foo', array($this->subscriber, 'preFoo'));
-        $this->manager->subscribe('post.foo', array($this->subscriber, 'postFoo'));
+        $this->manager->subscribe(self::PRE_FOO, array($this->subscriber, 'preFoo'));
+        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'));
         $this->assertTrue($this->manager->hasSubscribers());
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
-        $this->assertTrue($this->manager->hasSubscribers(self::postFoo));
-        $this->assertCount(1, $this->manager->getSubscribers(self::preFoo));
-        $this->assertCount(1, $this->manager->getSubscribers(self::postFoo));
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
+        $this->assertCount(1, $this->manager->getSubscribers(self::PRE_FOO));
+        $this->assertCount(1, $this->manager->getSubscribers(self::POST_FOO));
         $this->assertCount(2, $this->manager->getSubscribers());
     }
 
@@ -67,9 +77,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $subscriber2->name = '2';
         $subscriber3->name = '3';
 
-        $this->manager->subscribe('pre.foo', array($subscriber1, 'preFoo'), -10);
-        $this->manager->subscribe('pre.foo', array($subscriber2, 'preFoo'), 10);
-        $this->manager->subscribe('pre.foo', array($subscriber3, 'preFoo'));
+        $this->manager->subscribe(self::PRE_FOO, array($subscriber1, 'preFoo'), -10);
+        $this->manager->subscribe(self::PRE_FOO, array($subscriber2, 'preFoo'), 10);
+        $this->manager->subscribe(self::PRE_FOO, array($subscriber3, 'preFoo'));
 
         $expected = array(
             array($subscriber2, 'preFoo'),
@@ -77,7 +87,7 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
             array($subscriber1, 'preFoo'),
         );
 
-        $this->assertSame($expected, $this->manager->getSubscribers('pre.foo'));
+        $this->assertSame($expected, $this->manager->getSubscribers(self::PRE_FOO));
     }
 
     public function testGetAllListenersSortsByPriority()
@@ -89,16 +99,16 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $subscriber5 = new TestSubscriber();
         $subscriber6 = new TestSubscriber();
 
-        $this->manager->subscribe('pre.foo', $subscriber1, -10);
-        $this->manager->subscribe('pre.foo', $subscriber2);
-        $this->manager->subscribe('pre.foo', $subscriber3, 10);
-        $this->manager->subscribe('post.foo', $subscriber4, -10);
-        $this->manager->subscribe('post.foo', $subscriber5);
-        $this->manager->subscribe('post.foo', $subscriber6, 10);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber1, -10);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber2);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber3, 10);
+        $this->manager->subscribe(self::POST_FOO, $subscriber4, -10);
+        $this->manager->subscribe(self::POST_FOO, $subscriber5);
+        $this->manager->subscribe(self::POST_FOO, $subscriber6, 10);
 
         $expected = array(
-            'pre.foo' => array($subscriber3, $subscriber2, $subscriber1),
-            'post.foo' => array($subscriber6, $subscriber5, $subscriber4),
+            self::PRE_FOO => array($subscriber3, $subscriber2, $subscriber1),
+            self::POST_FOO => array($subscriber6, $subscriber5, $subscriber4),
         );
 
         $this->assertSame($expected, $this->manager->getSubscribers());
@@ -122,15 +132,15 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
 
     public function testPublish()
     {
-        $this->manager->subscribe('pre.foo', array($this->subscriber, 'preFoo'));
-        $this->manager->subscribe('post.foo', array($this->subscriber, 'postFoo'));
-        $this->manager->publish(self::preFoo);
+        $this->manager->subscribe(self::PRE_FOO, array($this->subscriber, 'preFoo'));
+        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'));
+        $this->manager->publish(self::PRE_FOO);
         $this->assertTrue($this->subscriber->preFooInvoked);
         $this->assertFalse($this->subscriber->postFooInvoked);
-        $this->assertInstanceOf('bdk\PubSub\Event', $this->manager->publish('noevent'));
-        $this->assertInstanceOf('bdk\PubSub\Event', $this->manager->publish(self::preFoo));
+        $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish('noevent'));
+        $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish(self::PRE_FOO));
         $event = new Event();
-        $return = $this->manager->publish(self::preFoo, $event);
+        $return = $this->manager->publish(self::PRE_FOO, $event);
         $this->assertSame($event, $return);
     }
 
@@ -140,9 +150,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $subscriber = function () use (&$invoked) {
             ++$invoked;
         };
-        $this->manager->subscribe('pre.foo', $subscriber);
-        $this->manager->subscribe('post.foo', $subscriber);
-        $this->manager->publish(self::preFoo);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber);
+        $this->manager->subscribe(self::POST_FOO, $subscriber);
+        $this->manager->publish(self::PRE_FOO);
         $this->assertEquals(1, $invoked);
     }
 
@@ -153,9 +163,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         // postFoo() stops the propagation, so only one subscriber should
         // be executed
         // Manually set priority to enforce $this->subscriber to be called first
-        $this->manager->subscribe('post.foo', array($this->subscriber, 'postFoo'), 10);
-        $this->manager->subscribe('post.foo', array($otherListener, 'preFoo'));
-        $this->manager->publish(self::postFoo);
+        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'), 10);
+        $this->manager->subscribe(self::POST_FOO, array($otherListener, 'preFoo'));
+        $this->manager->publish(self::POST_FOO);
         $this->assertTrue($this->subscriber->postFooInvoked);
         $this->assertFalse($otherListener->postFooInvoked);
     }
@@ -172,19 +182,19 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $subscriber3 = function () use (&$invoked) {
             $invoked[] = '3';
         };
-        $this->manager->subscribe('pre.foo', $subscriber1, -10);
-        $this->manager->subscribe('pre.foo', $subscriber2);
-        $this->manager->subscribe('pre.foo', $subscriber3, 10);
-        $this->manager->publish(self::preFoo);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber1, -10);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber2);
+        $this->manager->subscribe(self::PRE_FOO, $subscriber3, 10);
+        $this->manager->publish(self::PRE_FOO);
         $this->assertEquals(array('3', '2', '1'), $invoked);
     }
 
     public function testUnsubscribe()
     {
-        $this->manager->subscribe('pre.bar', $this->subscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::preBar));
-        $this->manager->unsubscribe('pre.bar', $this->subscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::preBar));
+        $this->manager->subscribe(self::PRE_BAR, $this->subscriber);
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_BAR));
+        $this->manager->unsubscribe(self::PRE_BAR, $this->subscriber);
+        $this->assertFalse($this->manager->hasSubscribers(self::PRE_BAR));
         $this->manager->unsubscribe('notExists', $this->subscriber);
     }
 
@@ -192,8 +202,8 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
     {
         $eventSubscriber = new TestSubscriberInterface();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
-        $this->assertTrue($this->manager->hasSubscribers(self::postFoo));
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testAddSubscriberInterfaceWithPriorities()
@@ -204,10 +214,10 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $eventSubscriber = new TestSubscriberInterfaceWithPriorities();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
-        $subscribers = $this->manager->getSubscribers('pre.foo');
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
+        $subscribers = $this->manager->getSubscribers(self::PRE_FOO);
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         $this->assertCount(2, $subscribers);
-        $this->assertInstanceOf('TestSubscriberInterfaceWithPriorities', $subscribers[0][0]);
+        $this->assertInstanceOf('bdk\\PubSubTests\\TestSubscriberInterfaceWithPriorities', $subscribers[0][0]);
     }
 
     public function testAddSubscriberInterfaceWithMultipleSubscribers()
@@ -215,8 +225,8 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $eventSubscriber = new TestSubscriberInterfaceWithMultipleSubscribers();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
-        $subscribers = $this->manager->getSubscribers('pre.foo');
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
+        $subscribers = $this->manager->getSubscribers(self::PRE_FOO);
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         $this->assertCount(2, $subscribers);
         $this->assertEquals('preFoo2', $subscribers[0][1]);
     }
@@ -225,30 +235,30 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
     {
         $eventSubscriber = new TestSubscriberInterface();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
-        $this->assertTrue($this->manager->hasSubscribers(self::postFoo));
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::preFoo));
-        $this->assertFalse($this->manager->hasSubscribers(self::postFoo));
+        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertFalse($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testRemoveSubscriberInterfaceWithPriorities()
     {
         $eventSubscriber = new TestSubscriberInterfaceWithPriorities();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::preFoo));
+        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
     }
 
     public function testRemoveSubscriberInterfaceWithMultipleSubscribers()
     {
         $eventSubscriber = new TestSubscriberInterfaceWithMultipleSubscribers();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::preFoo));
-        $this->assertCount(2, $this->manager->getSubscribers(self::preFoo));
+        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        $this->assertCount(2, $this->manager->getSubscribers(self::PRE_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::preFoo));
+        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
     }
 
     public function testEventReceivesTheManagerInstanceAsArgument()
@@ -269,18 +279,22 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
      *  - The PHP 5.3 branch for versions < 5.3.18
      *  - The PHP 5.4 branch for versions < 5.4.8
      *  - The PHP 5.5 branch is not affected
+     *
+     * @return void
      */
     public function testWorkaroundForPhpBug62976()
     {
         $manager = $this->createManager();
         $manager->subscribe('bug.62976', new CallableClass());
-        $manager->unsubscribe('bug.62976', function () {});
+        $manager->unsubscribe('bug.62976', function () {
+        });
         $this->assertTrue($manager->hasSubscribers('bug.62976'));
     }
 
     public function testHasListenersWhenAddedCallbackListenerIsRemoved()
     {
-        $subscriber = function () {};
+        $subscriber = function () {
+        };
         $this->manager->subscribe('foo', $subscriber);
         $this->manager->unsubscribe('foo', $subscriber);
         $this->assertFalse($this->manager->hasSubscribers());
@@ -288,7 +302,8 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
 
     public function testGetListenersWhenAddedCallbackListenerIsRemoved()
     {
-        $subscriber = function () {};
+        $subscriber = function () {
+        };
         $this->manager->subscribe('foo', $subscriber);
         $this->manager->unsubscribe('foo', $subscriber);
         $this->assertSame(array(), $this->manager->getSubscribers());
@@ -303,7 +318,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
     public function testHasListenersIsLazy()
     {
         $called = 0;
-        $subscriber = array(function () use (&$called) { ++$called; }, 'onFoo');
+        $subscriber = array(function () use (&$called) {
+            ++$called;
+        }, 'onFoo');
         $this->manager->subscribe('foo', $subscriber);
         $this->assertTrue($this->manager->hasSubscribers());
         $this->assertTrue($this->manager->hasSubscribers('foo'));
@@ -315,7 +332,6 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $called = 0;
         $factory = function () use (&$called) {
             ++$called;
-
             return new TestWithManager();
         };
         $this->manager->subscribe('foo', array($factory, 'foo'));
@@ -328,7 +344,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
     public function testRemoveFindsLazyListeners()
     {
         $test = new TestWithManager();
-        $factory = function () use ($test) { return $test; };
+        $factory = function () use ($test) {
+            return $test;
+        };
 
         $this->manager->subscribe('foo', array($factory, 'foo'));
         $this->assertTrue($this->manager->hasSubscribers('foo'));
@@ -359,7 +377,9 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
     public function testGetLazyListeners()
     {
         $test = new TestWithManager();
-        $factory = function () use ($test) { return $test; };
+        $factory = function () use ($test) {
+            return $test;
+        };
 
         $this->manager->subscribe('foo', array($factory, 'foo'), 3);
         $this->assertSame(array(array($test, 'foo')), $this->manager->getSubscribers('foo'));
@@ -367,6 +387,11 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $this->manager->unsubscribe('foo', array($test, 'foo'));
         $this->manager->subscribe('bar', array($factory, 'foo'), 3);
         $this->assertSame(array('bar' => array(array($test, 'foo'))), $this->manager->getSubscribers());
+    }
+
+    protected function createManager()
+    {
+        return new Manager();
     }
 }
 
@@ -382,7 +407,9 @@ class TestSubscriber
     public $preFooInvoked = false;
     public $postFooInvoked = false;
 
-    /* Subscribe methods */
+    /*
+        Subscribe methods
+    */
 
     public function preFoo(Event $e)
     {
