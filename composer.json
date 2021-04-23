@@ -4,6 +4,10 @@
 	"keywords": ["event", "manager", "eventmanager"],
 	"homepage": "http://github.com/bkdotcom/PubSub",
 	"license": "MIT",
+	"support": {
+		"issues": "https://github.com/bkdotcom/PubSub/issues",
+		"source": "https://github.com/bkdotcom/PubSub"
+	},
 	"authors": [
 		{
 			"name": "Brad Kent",
