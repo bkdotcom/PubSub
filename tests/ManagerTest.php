@@ -35,7 +35,7 @@ class ManagerTest extends TestCase
     public function setUp(): void
     {
         $this->manager = $this->createManager();
-        $this->subscriber = new TestSubscriber();
+        $this->testSubscriber = new TestSubscriber();
     }
 
     /**
@@ -46,7 +46,7 @@ class ManagerTest extends TestCase
     public function tearDown(): void
     {
         $this->manager = null;
-        $this->subscriber = null;
+        $this->testSubscriber = null;
     }
 
     public function testInitialState()
@@ -58,8 +58,8 @@ class ManagerTest extends TestCase
 
     public function testSubscribe()
     {
-        $this->manager->subscribe(self::PRE_FOO, array($this->subscriber, 'preFoo'));
-        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'));
+        $this->manager->subscribe(self::PRE_FOO, array($this->testSubscriber, 'preFoo'));
+        $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'));
         $this->assertTrue($this->manager->hasSubscribers());
         $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
@@ -92,12 +92,12 @@ class ManagerTest extends TestCase
 
     public function testGetAllListenersSortsByPriority()
     {
-        $subscriber1 = new TestSubscriber();
-        $subscriber2 = new TestSubscriber();
-        $subscriber3 = new TestSubscriber();
-        $subscriber4 = new TestSubscriber();
-        $subscriber5 = new TestSubscriber();
-        $subscriber6 = new TestSubscriber();
+        $subscriber1 = array(new TestSubscriber(), 'preFoo');
+        $subscriber2 = array(new TestSubscriber(), 'preFoo');
+        $subscriber3 = array(new TestSubscriber(), 'preFoo');
+        $subscriber4 = array(new TestSubscriber(), 'postFoo');
+        $subscriber5 = array(new TestSubscriber(), 'postFoo');
+        $subscriber6 = array(new TestSubscriber(), 'postFoo');
 
         $this->manager->subscribe(self::PRE_FOO, $subscriber1, -10);
         $this->manager->subscribe(self::PRE_FOO, $subscriber2);
@@ -132,11 +132,11 @@ class ManagerTest extends TestCase
 
     public function testPublish()
     {
-        $this->manager->subscribe(self::PRE_FOO, array($this->subscriber, 'preFoo'));
-        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'));
+        $this->manager->subscribe(self::PRE_FOO, array($this->testSubscriber, 'preFoo'));
+        $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'));
         $this->manager->publish(self::PRE_FOO);
-        $this->assertTrue($this->subscriber->preFooInvoked);
-        $this->assertFalse($this->subscriber->postFooInvoked);
+        $this->assertTrue($this->testSubscriber->preFooInvoked);
+        $this->assertFalse($this->testSubscriber->postFooInvoked);
         $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish('noevent'));
         $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish(self::PRE_FOO));
         $event = new Event();
@@ -162,11 +162,11 @@ class ManagerTest extends TestCase
 
         // postFoo() stops the propagation, so only one subscriber should
         // be executed
-        // Manually set priority to enforce $this->subscriber to be called first
-        $this->manager->subscribe(self::POST_FOO, array($this->subscriber, 'postFoo'), 10);
+        // Manually set priority to enforce $this->testSubscriber to be called first
+        $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'), 10);
         $this->manager->subscribe(self::POST_FOO, array($otherListener, 'preFoo'));
         $this->manager->publish(self::POST_FOO);
-        $this->assertTrue($this->subscriber->postFooInvoked);
+        $this->assertTrue($this->testSubscriber->postFooInvoked);
         $this->assertFalse($otherListener->postFooInvoked);
     }
 
@@ -191,11 +191,11 @@ class ManagerTest extends TestCase
 
     public function testUnsubscribe()
     {
-        $this->manager->subscribe(self::PRE_BAR, $this->subscriber);
+        $this->manager->subscribe(self::PRE_BAR, array($this->testSubscriber, 'preFoo'));
         $this->assertTrue($this->manager->hasSubscribers(self::PRE_BAR));
-        $this->manager->unsubscribe(self::PRE_BAR, $this->subscriber);
+        $this->manager->unsubscribe(self::PRE_BAR, array($this->testSubscriber, 'preFoo'));
         $this->assertFalse($this->manager->hasSubscribers(self::PRE_BAR));
-        $this->manager->unsubscribe('notExists', $this->subscriber);
+        $this->manager->unsubscribe('notExists', array($this->testSubscriber, 'preFoo'));
     }
 
     public function testAddSubscriberInterface()
@@ -440,7 +440,10 @@ class TestSubscriberInterface implements SubscriberInterface
 {
     public function getSubscriptions()
     {
-        return array('pre.foo' => 'preFoo', 'post.foo' => 'postFoo');
+        return array(
+            'pre.foo' => 'preFoo',
+            'post.foo' => 'postFoo',
+        );
     }
 }
 
@@ -459,9 +462,11 @@ class TestSubscriberInterfaceWithMultipleSubscribers implements SubscriberInterf
 {
     public function getSubscriptions()
     {
-        return array('pre.foo' => array(
-            array('preFoo1'),
-            array('preFoo2', 10),
-        ));
+        return array(
+            'pre.foo' => array(
+                array('preFoo1'),
+                array('preFoo2', 10),
+            ),
+        );
     }
 }
