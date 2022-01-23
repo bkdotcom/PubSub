@@ -58,6 +58,17 @@ class EventTest extends TestCase
      */
     public function testDebugInfo()
     {
+        if (PHP_VERSION_ID < 50600) {
+            $this->markTestSkipped('__debugInfo introduced in PHP 5.6');
+        }
+        $haveXdebug = \extension_loaded('xdebug');
+        if ($haveXdebug) {
+            $xdebugVer = \phpversion('xdebug');
+            if (\version_compare($xdebugVer, '3.0.0', '<')) {
+                $this->markTestSkipped('xDebug < 3.0.0 ignores __debugInfo');
+            }
+        }
+
         \ob_start();
         \var_dump($this->event);
         $varDump = \ob_get_clean();
