@@ -20,7 +20,6 @@ use bdk\PubSub\SubscriberInterface;
  */
 class Manager
 {
-
     const EVENT_PHP_SHUTDOWN = 'php.shutdown';
     const DEFAULT_PRIORITY = 0;
 
@@ -36,7 +35,7 @@ class Manager
             As a convenience, make shutdown subscribeable
         */
         \register_shutdown_function(function () {
-            $this->publish(self::EVENT_PHP_SHUTDOWN);
+            $this->publish(self::EVENT_PHP_SHUTDOWN); // @codeCoverageIgnore
         });
     }
 
@@ -51,14 +50,14 @@ class Manager
      */
     public function addSubscriberInterface(SubscriberInterface $interface)
     {
-        $interfaceSubscribers = $this->getInterfaceSubscribers($interface);
-        foreach ($interfaceSubscribers as $eventName => $rows) {
-            foreach ($rows as $row) {
-                $callable = array($interface, $row[0]);
-                $this->subscribe($eventName, $callable, $row[1]);
+        $subscribersByEvent = $this->getInterfaceSubscribers($interface);
+        foreach ($subscribersByEvent as $eventName => $subscribers) {
+            foreach ($subscribers as $methodPriority) {
+                $callable = array($interface, $methodPriority[0]);
+                $this->subscribe($eventName, $callable, $methodPriority[1]);
             }
         }
-        return $interfaceSubscribers;
+        return $subscribersByEvent;
     }
 
     /**
@@ -125,9 +124,7 @@ class Manager
             ? $eventOrSubject
             : new Event($eventOrSubject, $values);
         $subscribers = $this->getSubscribers($eventName);
-        if ($subscribers) {
-            $this->doPublish($eventName, $subscribers, $event);
-        }
+        $this->doPublish($eventName, $subscribers, $event);
         return $event;
     }
 
@@ -142,14 +139,14 @@ class Manager
      */
     public function removeSubscriberInterface(SubscriberInterface $interface)
     {
-        $interfaceSubscribers = $this->getInterfaceSubscribers($interface);
-        foreach ($interfaceSubscribers as $eventName => $rows) {
-            foreach ($rows as $row) {
-                $callable = array($interface, $row[0]);
+        $subscribersByEvent = $this->getInterfaceSubscribers($interface);
+        foreach ($subscribersByEvent as $eventName => $subscribers) {
+            foreach ($subscribers as $methodPriority) {
+                $callable = array($interface, $methodPriority[0]);
                 $this->unsubscribe($eventName, $callable);
             }
         }
-        return $interfaceSubscribers;
+        return $subscribersByEvent;
     }
 
     /**
@@ -304,7 +301,7 @@ class Manager
      *
      * @param string|array $mixed method(s) with priority
      *
-     * @return array
+     * @return array list of array(methodName, priority)
      */
     private function normalizeInterfaceSubscribers($mixed)
     {

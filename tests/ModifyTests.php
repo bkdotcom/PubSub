@@ -3,7 +3,7 @@
 namespace bdk\PubSubTests;
 
 /**
- * PHPDebugConsole supports php 5.4 - php 8.0
+ * PubSub supports php 5.4 - php 8.0
  * Modify our unit tests depending on what version of PHP we're testing
  * and what version of PHPUnit is being used.
  *
@@ -11,7 +11,6 @@ namespace bdk\PubSubTests;
  */
 class ModifyTests
 {
-
     private $modifiedFiles = array();
     protected $dir;
 

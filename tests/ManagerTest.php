@@ -9,6 +9,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * PHPUnit tests for Debug class
+ *
+ * @covers \bdk\PubSub\Manager
+ * @uses   \bdk\PubSub\Event
  */
 class ManagerTest extends TestCase
 {
@@ -24,8 +27,6 @@ class ManagerTest extends TestCase
      * @var Manager
      */
     private $manager;
-
-    private $subscriber;
 
     /**
      * This method is called before a test is executed.
@@ -47,6 +48,43 @@ class ManagerTest extends TestCase
     {
         $this->manager = null;
         $this->testSubscriber = null;
+    }
+
+    public function testAssertCallable()
+    {
+        $this->manager->subscribe(self::PRE_FOO, array(function () {
+            // this closure lazy-loads the subscriber object
+            return $this->testSubscriber;
+        }, 'preFoo'), PHP_INT_MAX);
+
+        $caughtException = false;
+        try {
+            $this->manager->subscribe(self::PRE_FOO, 42);
+        } catch (\InvalidArgumentException $e) {
+            $caughtException = true;
+        }
+        $this->assertTrue($caughtException);
+    }
+
+    public function testInvokable()
+    {
+        $str = 'testInvokable1';
+        $invokable = new testInvokable($str);
+        $this->manager->subscribe($str, $invokable);
+        \ob_start();
+        $this->manager->publish($str);
+        $output = \ob_get_clean();
+        $this->assertSame($str, $output);
+
+        $str = 'testInvokable2';
+        $this->manager->subscribe($str, array(function () use ($str) {
+            // this closure lazy-loads the subscriber object
+            return new TestInvokable($str);
+        }), PHP_INT_MAX);
+        \ob_start();
+        $this->manager->publish($str);
+        $output = \ob_get_clean();
+        $this->assertSame($str, $output);
     }
 
     public function testInitialState()
@@ -421,6 +459,19 @@ class TestSubscriber
         $this->postFooInvoked = true;
 
         $e->stopPropagation();
+    }
+}
+
+class TestInvokable
+{
+    private $outString = '';
+    public function __construct($outString)
+    {
+        $this->outString = $outString;
+    }
+    public function __invoke()
+    {
+        echo $this->outString;
     }
 }
 

@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="tests/bootstrap.php">
+<phpunit
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+  bootstrap="tests/bootstrap.php"
+  colors="true"
+  testdox="true"
+  verbose="true"
+  beStrictAboutCoversAnnotation="true"
+>
+  <!--
+  <coverage processUncoveredFiles="true">
+    <include>
+      <directory suffix=".php">src</directory>
+    </include>
+    <report>
+      <clover outputFile="coverage/coverage.xml"/>
+      <html outputDirectory="coverage/html"/>
+      <text outputFile="php://stdout" showUncoveredFiles="true" showOnlySummary="true"/>
+    </report>
+  </coverage>
+  -->
   <testsuites>
     <testsuite name="PubSub">
       <directory>tests</directory>
