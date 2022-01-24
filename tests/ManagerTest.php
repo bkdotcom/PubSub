@@ -50,6 +50,20 @@ class ManagerTest extends TestCase
         $this->testSubscriber = null;
     }
 
+    public function testShutdownEvent()
+    {
+        $output = array();
+        $returnVal = 0;
+        \exec('php ' . __DIR__ . '/shutdownEvent.php', $output, $returnVal);
+        $this->assertSame(
+            'shutdown: bdk\PubSub\Event php.shutdown bdk\PubSub\Manager',
+            \implode('', $output),
+            'shutdown event test failed'
+        );
+        $this->assertSame(0, $returnVal);
+    }
+
+
     public function testAssertCallable()
     {
         $this->manager->subscribe(self::PRE_FOO, array(function () {
