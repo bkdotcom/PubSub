@@ -6,8 +6,8 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2021 Brad Kent
- * @version   v2.3
+ * @copyright 2014-2022 Brad Kent
+ * @version   v2.4
  * @link      http://www.github.com/bkdotcom/PubSub
  */
 
@@ -15,7 +15,6 @@ namespace bdk\PubSub;
 
 interface SubscriberInterface
 {
-
     /**
      * Return a list of event subscribers
      *
