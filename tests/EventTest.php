@@ -72,18 +72,22 @@ class EventTest extends TestCase
         \ob_start();
         \var_dump($this->event);
         $varDump = \ob_get_clean();
+        $varDump = \preg_replace('/^[^:]+:\d+:\n/', '', $varDump);
         $varDump = \preg_replace('/\[(\S+)\]=>\n\s*/', '$1 => ', $varDump);
+        $varDump = \preg_replace('/(\S)\s*=>\n\s*/', '$1 => ', $varDump);
         $varDump = \preg_replace('/(object\([\\\a-z0-9]+\))#\d+ \(\d+\) /i', '$1 ', $varDump);
+        $varDump = \preg_replace('/(class [\\\a-z0-9]+)#\d+ \(\d+\) /i', '$1 ', $varDump);
         $varDump = \preg_replace('/ => (array|string)\(\d+\) /', ' => ', $varDump);
         $varDump = \preg_replace('/ => bool\((true|false)\)/', ' => $1', $varDump);
+        $varDump = \preg_replace('/(?:public|protected|private) \$(\w+)/', '$1', $varDump);
         $varDump = \trim($varDump);
-        $expect = 'object(bdk\PubSub\Event) {
-  "propagationStopped" => false
-  "subject" => "bdk\PubSubTests\EventTest"
-  "values" => {
-    "foo" => "bar"
-    "ding" => "dong"
-    "mellow" => "yellow"
+        $expect = 'class bdk\PubSub\Event {
+  propagationStopped => false
+  subject => "bdk\PubSubTests\EventTest"
+  values => {
+    \'foo\' => "bar"
+    \'ding\' => "dong"
+    \'mellow\' => "yellow"
   }
 }';
         $this->assertSame($expect, $varDump);
