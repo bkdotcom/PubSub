@@ -14,6 +14,8 @@
 namespace bdk\PubSub;
 
 use bdk\PubSub\SubscriberInterface;
+use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Event publish/subscribe event manager
@@ -46,15 +48,19 @@ class Manager
      *
      * @param SubscriberInterface $interface object implementing subscriber interface
      *
-     * @return array a normalized list of subscriptions added.
+     * @return array A normalized list of subscriptions added.
      */
     public function addSubscriberInterface(SubscriberInterface $interface)
     {
         $subscribersByEvent = $this->getInterfaceSubscribers($interface);
-        foreach ($subscribersByEvent as $eventName => $subscribers) {
-            foreach ($subscribers as $methodPriority) {
-                $callable = array($interface, $methodPriority[0]);
-                $this->subscribe($eventName, $callable, $methodPriority[1]);
+        foreach ($subscribersByEvent as $eventName => $eventSubscribers) {
+            foreach ($eventSubscribers as $subscriberInfo) {
+                $this->subscribe(
+                    $eventName,
+                    $subscriberInfo['callable'],
+                    $subscriberInfo['priority'],
+                    $subscriberInfo['onlyOnce']
+                );
             }
         }
         return $subscribersByEvent;
@@ -71,20 +77,21 @@ class Manager
      */
     public function getSubscribers($eventName = null)
     {
+        $sortFunc = function ($eventName) {
+            if (!isset($this->sorted[$eventName])) {
+                $this->prepSubscribers($eventName);
+            }
+        };
         if ($eventName !== null) {
             if (!isset($this->subscribers[$eventName])) {
                 return array();
             }
-            if (!isset($this->sorted[$eventName])) {
-                $this->prepSubscribers($eventName);
-            }
+            $sortFunc($eventName);
             return $this->sorted[$eventName];
         }
         // return all subscribers
         foreach (\array_keys($this->subscribers) as $eventName) {
-            if (!isset($this->sorted[$eventName])) {
-                $this->prepSubscribers($eventName);
-            }
+            $sortFunc($eventName);
         }
         return \array_filter($this->sorted);
     }
@@ -140,10 +147,9 @@ class Manager
     public function removeSubscriberInterface(SubscriberInterface $interface)
     {
         $subscribersByEvent = $this->getInterfaceSubscribers($interface);
-        foreach ($subscribersByEvent as $eventName => $subscribers) {
-            foreach ($subscribers as $methodPriority) {
-                $callable = array($interface, $methodPriority[0]);
-                $this->unsubscribe($eventName, $callable);
+        foreach ($subscribersByEvent as $eventName => $eventSubscribers) {
+            foreach ($eventSubscribers as $subscriberInfo) {
+                $this->unsubscribe($eventName, $subscriberInfo['callable']);
             }
         }
         return $subscribersByEvent;
@@ -166,14 +172,19 @@ class Manager
      * @param string         $eventName event name
      * @param callable|array $callable  callable or closure factory
      * @param int            $priority  The higher this value, the earlier we handle event
+     * @param bool           $onlyOnce  (false) Auto-unsubscribe after first invocation
      *
      * @return void
      */
-    public function subscribe($eventName, $callable, $priority = 0)
+    public function subscribe($eventName, $callable, $priority = 0, $onlyOnce = false)
     {
         unset($this->sorted[$eventName]); // clear the sorted cache
         $this->assertCallable($callable);
-        $this->subscribers[$eventName][$priority][] = $callable;
+        $this->subscribers[$eventName][$priority][] = array(
+            'callable' => $callable,
+            'onlyOnce' => $onlyOnce,
+            'priority' => $priority,
+        );
     }
 
     /**
@@ -193,15 +204,9 @@ class Manager
             $callable = $this->doClosureFactory($callable);
         }
         $this->prepSubscribers($eventName);
-        foreach ($this->subscribers[$eventName] as $priority => $subscribers) {
-            foreach ($subscribers as $k => $subscriber) {
-                if ($subscriber === $callable) {
-                    unset($this->subscribers[$eventName][$priority][$k], $this->sorted[$eventName]);
-                }
-            }
-            if (empty($this->subscribers[$eventName][$priority])) {
-                unset($this->subscribers[$eventName][$priority]);
-            }
+        $priorities = \array_keys($this->subscribers[$eventName]);
+        foreach ($priorities as $priority) {
+            $this->unsubscribeHelper($eventName, $callable, $priority, false);
         }
     }
 
@@ -212,7 +217,7 @@ class Manager
      *
      * @return void
      *
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     private function assertCallable($val)
     {
@@ -222,9 +227,9 @@ class Manager
         if ($this->isClosureFactory($val)) {
             return;
         }
-        throw new \InvalidArgumentException(\sprintf(
+        throw new InvalidArgumentException(\sprintf(
             'Expected callable or "closure factory", but %s provided',
-            \is_object($val) ? \get_class($val) : \gettype($val)
+            $this->getDebugType($val)
         ));
     }
 
@@ -257,12 +262,29 @@ class Manager
      */
     protected function doPublish($eventName, $subscribers, Event $event)
     {
-        foreach ($subscribers as $callable) {
+        foreach ($subscribers as $subscriberInfo) {
             if ($event->isPropagationStopped()) {
                 break;
             }
-            \call_user_func($callable, $event, $eventName, $this);
+            \call_user_func($subscriberInfo['callable'], $event, $eventName, $this);
+            if ($subscriberInfo['onlyOnce']) {
+                $this->unsubscribeHelper($eventName, $subscriberInfo['callable'], $subscriberInfo['priority'], true);
+            }
         }
+    }
+
+    /**
+     * Gets the type name of a variable in a way that is suitable for debugging
+     *
+     * @param mixed $value Value to inspect
+     *
+     * @return string
+     */
+    private static function getDebugType($value)
+    {
+        return \is_object($value)
+            ? \get_class($value)
+            : \gettype($value);
     }
 
     /**
@@ -283,55 +305,124 @@ class Manager
     /**
      * Calls the passed object's getSubscriptions() method and returns a normalized list of subscriptions
      *
-     * @param SubscriberInterface $interface object implementing subscriber interface
+     * @param SubscriberInterface $interface SubscriberInterface instance
      *
      * @return array
+     *
+     * @throws RuntimeException
      */
     private function getInterfaceSubscribers(SubscriberInterface $interface)
     {
-        $subscribers = array();
-        foreach ($interface->getSubscriptions() as $eventName => $mixed) {
-            $subscribers[$eventName] = $this->normalizeInterfaceSubscribers($mixed);
+        $subscriptions = $interface->getSubscriptions();
+        if (\is_array($subscriptions) === false) {
+            throw new RuntimeException(\sprintf(
+                'Expected array from %s::getSubscriptions().  Got %s',
+                \get_class($interface),
+                $this->getDebugType($subscriptions)
+            ));
         }
-        return $subscribers;
+        foreach ($subscriptions as $eventName => $mixed) {
+            $eventSubscribers = $this->normalizeInterfaceSubscribers($interface, $mixed);
+            if ($eventSubscribers === false) {
+                throw new RuntimeException(\sprintf(
+                    '%s::getSubscriptions():  Unexpected subscriber(s) defined for %s',
+                    \get_class($interface),
+                    $eventName
+                ));
+            }
+            $subscriptions[$eventName] = $eventSubscribers;
+        }
+        return $subscriptions;
     }
 
     /**
      * Normalize event subscribers
      *
-     * @param string|array $mixed method(s) with priority
+     * @param SubscriberInterface $interface SubscriberInterface instance
+     * @param string|array        $mixed     method(s) with optional priority/onlyOnce
      *
-     * @return array list of array(methodName, priority)
+     * @return array|false list of array(methodName, priority)
      */
-    private function normalizeInterfaceSubscribers($mixed)
+    private function normalizeInterfaceSubscribers(SubscriberInterface $interface, $mixed)
     {
-        if (\is_string($mixed)) {
-            // methodName
-            return array(
-                array($mixed, self::DEFAULT_PRIORITY),
-            );
+        // test if single subscriber
+        $subscriberInfo = $this->normalizeInterfaceSubscriber($mixed);
+        if ($subscriberInfo) {
+            $subscriberInfo['callable'] = array($interface, $subscriberInfo['callable']);
+            return array($subscriberInfo);
         }
-        if (\count($mixed) === 2 && \is_int($mixed[1])) {
-            // ['methodName', priority]
-            return array(
-                $mixed,
-            );
+        if (\is_array($mixed) === false) {
+            return false;
         }
-        // array of methods
+        // multiple subscribers
         $eventSubscribers = array();
         foreach ($mixed as $mixed2) {
-            if (\is_string($mixed2)) {
-                // methodName
-                $eventSubscribers[] = array($mixed2, self::DEFAULT_PRIORITY);
+            $subscriberInfo = $this->normalizeInterfaceSubscriber($mixed2);
+            if ($subscriberInfo) {
+                $subscriberInfo['callable'] = array($interface, $subscriberInfo['callable']);
+                $eventSubscribers[] = $subscriberInfo;
                 continue;
             }
-            // array(methodName[, priority])
-            $priority = isset($mixed2[1])
-                ? $mixed2[1]
-                : self::DEFAULT_PRIORITY;
-            $eventSubscribers[] = array($mixed2[0], $priority);
+            return false;
         }
         return $eventSubscribers;
+    }
+
+    /**
+     * Test if value defines method/priority/onlyOnce
+     *
+     * @param string|array $mixed method/priority/onlyOnce info
+     *
+     * @return array|false
+     */
+    private function normalizeInterfaceSubscriber($mixed)
+    {
+        $subscriberInfo = array(
+            'callable' => null,
+            'onlyOnce' => false,
+            'priority' => self::DEFAULT_PRIORITY,
+        );
+        if (\is_string($mixed)) {
+            $subscriberInfo['callable'] = $mixed;
+            return $subscriberInfo;
+        }
+        if (\is_array($mixed)) {
+            $subscriberInfo = $this->normalizeInterfaceSubscriberArray($mixed, $subscriberInfo);
+        }
+        return $subscriberInfo['callable'] !== null
+            ? $subscriberInfo
+            : false;
+    }
+
+    /**
+     * Test if given array defines method/priority/onlyOnce
+     *
+     * @param array $mixed          array values
+     * @param array $subscriberInfo [description]
+     *
+     * @return array updated subscriberInfo
+     */
+    private function normalizeInterfaceSubscriberArray(array $mixed, array $subscriberInfo)
+    {
+        $tests = array(
+            'callable' => 'is_string',
+            'onlyOnce' => 'is_bool',
+            'priority' => 'is_int',
+        );
+        while ($mixed && $tests) {
+            $val = \array_shift($mixed);
+            foreach ($tests as $key => $test) {
+                if ($test($val)) {
+                    $subscriberInfo[$key] = $val;
+                    unset($tests[$key]);
+                    continue 2;
+                }
+            }
+            // all tests failed for current value
+            $subscriberInfo['callable'] = null;
+            break;
+        }
+        return $subscriberInfo;
     }
 
     /**
@@ -346,14 +437,44 @@ class Manager
     {
         \krsort($this->subscribers[$eventName]);
         $this->sorted[$eventName] = array();
-        foreach ($this->subscribers[$eventName] as $priority => $subscribers) {
-            foreach ($subscribers as $k => $subscriber) {
-                if ($this->isClosureFactory($subscriber)) {
-                    $subscriber = $this->doClosureFactory($subscriber);
-                    $this->subscribers[$eventName][$priority][$k] = $subscriber;
+        foreach ($this->subscribers[$eventName] as $priority => $eventSubscribers) {
+            foreach ($eventSubscribers as $k => $subscriberInfo) {
+                if ($this->isClosureFactory($subscriberInfo['callable'])) {
+                    $subscriberInfo['callable'] = $this->doClosureFactory($subscriberInfo['callable']);
+                    $this->subscribers[$eventName][$priority][$k] = $subscriberInfo;
                 }
-                $this->sorted[$eventName][] = $subscriber;
+                $this->sorted[$eventName][] = $subscriberInfo;
             }
+        }
+    }
+
+    /**
+     * Find callable in eventName/priority array and remove it
+     *
+     * @param string   $eventName The event we're unsubscribing from
+     * @param callable $callable  callable
+     * @param int      $priority  The priority
+     * @param bool     $onlyOnce  Only unsubscribe "onlyOnce" subscribers
+     *
+     * @return void
+     */
+    private function unsubscribeHelper($eventName, $callable, $priority, $onlyOnce)
+    {
+        foreach ($this->subscribers[$eventName][$priority] as $k => $subscriberInfo) {
+            $search = \array_filter(array(
+                'callable' => $callable,
+                'onlyOnce' => $onlyOnce,
+            ));
+            if (\array_intersect_key($subscriberInfo, $search) !== $search) {
+                continue;
+            }
+            unset($this->subscribers[$eventName][$priority][$k], $this->sorted[$eventName]);
+            if ($onlyOnce) {
+                break;
+            }
+        }
+        if (empty($this->subscribers[$eventName][$priority])) {
+            unset($this->subscribers[$eventName][$priority]);
         }
     }
 }

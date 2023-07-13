@@ -4,7 +4,6 @@ namespace bdk\PubSubTests;
 
 use bdk\PubSub\Event;
 use bdk\PubSub\Manager;
-use bdk\PubSub\SubscriberInterface;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -28,6 +27,8 @@ class ManagerTest extends TestCase
      */
     private $manager;
 
+    private $testSubscriber;
+
     /**
      * This method is called before a test is executed.
      *
@@ -36,7 +37,7 @@ class ManagerTest extends TestCase
     public function setUp(): void
     {
         $this->manager = $this->createManager();
-        $this->testSubscriber = new TestSubscriber();
+        $this->testSubscriber = new Fixture\Subscriber();
     }
 
     /**
@@ -55,14 +56,13 @@ class ManagerTest extends TestCase
         $output = array();
         $returnVal = 0;
         \exec('php ' . __DIR__ . '/shutdownEvent.php', $output, $returnVal);
-        $this->assertSame(
+        self::assertSame(
             'shutdown: bdk\PubSub\Event php.shutdown bdk\PubSub\Manager',
             \implode('', $output),
             'shutdown event test failed'
         );
-        $this->assertSame(0, $returnVal);
+        self::assertSame(0, $returnVal);
     }
-
 
     public function testAssertCallable()
     {
@@ -77,54 +77,83 @@ class ManagerTest extends TestCase
         } catch (\InvalidArgumentException $e) {
             $caughtException = true;
         }
-        $this->assertTrue($caughtException);
+        self::assertTrue($caughtException);
     }
 
     public function testInvokable()
     {
         $str = 'testInvokable1';
-        $invokable = new testInvokable($str);
+        $invokable = new Fixture\Invokable($str);
         $this->manager->subscribe($str, $invokable);
         \ob_start();
         $this->manager->publish($str);
         $output = \ob_get_clean();
-        $this->assertSame($str, $output);
+        self::assertSame($str, $output);
 
         $str = 'testInvokable2';
-        $this->manager->subscribe($str, array(function () use ($str) {
+        $this->manager->subscribe($str, array(static function () use ($str) {
             // this closure lazy-loads the subscriber object
-            return new TestInvokable($str);
+            return new Fixture\Invokable($str);
         }), PHP_INT_MAX);
         \ob_start();
         $this->manager->publish($str);
         $output = \ob_get_clean();
-        $this->assertSame($str, $output);
+        self::assertSame($str, $output);
     }
 
     public function testInitialState()
     {
-        $this->assertEquals(array(), $this->manager->getSubscribers());
-        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertFalse($this->manager->hasSubscribers(self::POST_FOO));
+        self::assertEquals(array(), $this->manager->getSubscribers());
+        self::assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertFalse($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testSubscribe()
     {
         $this->manager->subscribe(self::PRE_FOO, array($this->testSubscriber, 'preFoo'));
         $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'));
-        $this->assertTrue($this->manager->hasSubscribers());
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
-        $this->assertCount(1, $this->manager->getSubscribers(self::PRE_FOO));
-        $this->assertCount(1, $this->manager->getSubscribers(self::POST_FOO));
-        $this->assertCount(2, $this->manager->getSubscribers());
+        self::assertTrue($this->manager->hasSubscribers());
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));
+        self::assertCount(1, $this->manager->getSubscribers(self::PRE_FOO));
+        self::assertCount(1, $this->manager->getSubscribers(self::POST_FOO));
+        self::assertCount(2, $this->manager->getSubscribers());
+    }
+
+    public function testSubscribeOnce()
+    {
+        $callable1 = array($this->testSubscriber, 'preFoo');
+        $callable2 = array($this->testSubscriber, 'test');
+        $this->manager->subscribe(self::PRE_FOO, $callable2, 0, false);
+        $this->manager->subscribe(self::PRE_FOO, $callable1, 0, true);
+        self::assertSame(array(
+            array(
+                'callable' => $callable2,
+                'onlyOnce' => false,
+                'priority' => 0,
+            ),
+            array(
+                'callable' => $callable1,
+                'onlyOnce' => true,
+                'priority' => 0,
+            ),
+        ), $this->manager->getSubscribers(self::PRE_FOO));
+        $this->manager->publish(self::PRE_FOO);
+        self::assertSame(1, $this->testSubscriber->preFooInvoked);
+        self::assertSame(array(
+            array(
+                'callable' => $callable2,
+                'onlyOnce' => false,
+                'priority' => 0,
+            ),
+        ), $this->manager->getSubscribers(self::PRE_FOO));
     }
 
     public function testGetListenersSortsByPriority()
     {
-        $subscriber1 = new TestSubscriber();
-        $subscriber2 = new TestSubscriber();
-        $subscriber3 = new TestSubscriber();
+        $subscriber1 = new Fixture\Subscriber();
+        $subscriber2 = new Fixture\Subscriber();
+        $subscriber3 = new Fixture\Subscriber();
         $subscriber1->name = '1';
         $subscriber2->name = '2';
         $subscriber3->name = '3';
@@ -134,22 +163,34 @@ class ManagerTest extends TestCase
         $this->manager->subscribe(self::PRE_FOO, array($subscriber3, 'preFoo'));
 
         $expected = array(
-            array($subscriber2, 'preFoo'),
-            array($subscriber3, 'preFoo'),
-            array($subscriber1, 'preFoo'),
+            array(
+                'callable' => array($subscriber2, 'preFoo'),
+                'onlyOnce' => false,
+                'priority' => 10,
+            ),
+            array(
+                'callable' => array($subscriber3, 'preFoo'),
+                'onlyOnce' => false,
+                'priority' => 0,
+            ),
+            array(
+                'callable' => array($subscriber1, 'preFoo'),
+                'onlyOnce' => false,
+                'priority' => -10,
+            ),
         );
 
-        $this->assertSame($expected, $this->manager->getSubscribers(self::PRE_FOO));
+        self::assertSame($expected, $this->manager->getSubscribers(self::PRE_FOO));
     }
 
     public function testGetAllListenersSortsByPriority()
     {
-        $subscriber1 = array(new TestSubscriber(), 'preFoo');
-        $subscriber2 = array(new TestSubscriber(), 'preFoo');
-        $subscriber3 = array(new TestSubscriber(), 'preFoo');
-        $subscriber4 = array(new TestSubscriber(), 'postFoo');
-        $subscriber5 = array(new TestSubscriber(), 'postFoo');
-        $subscriber6 = array(new TestSubscriber(), 'postFoo');
+        $subscriber1 = array(new Fixture\Subscriber(), 'preFoo');
+        $subscriber2 = array(new Fixture\Subscriber(), 'preFoo');
+        $subscriber3 = array(new Fixture\Subscriber(), 'preFoo');
+        $subscriber4 = array(new Fixture\Subscriber(), 'postFoo');
+        $subscriber5 = array(new Fixture\Subscriber(), 'postFoo');
+        $subscriber6 = array(new Fixture\Subscriber(), 'postFoo');
 
         $this->manager->subscribe(self::PRE_FOO, $subscriber1, -10);
         $this->manager->subscribe(self::PRE_FOO, $subscriber2);
@@ -159,26 +200,58 @@ class ManagerTest extends TestCase
         $this->manager->subscribe(self::POST_FOO, $subscriber6, 10);
 
         $expected = array(
-            self::PRE_FOO => array($subscriber3, $subscriber2, $subscriber1),
-            self::POST_FOO => array($subscriber6, $subscriber5, $subscriber4),
+            self::PRE_FOO => array(
+                array(
+                    'callable' => $subscriber3,
+                    'onlyOnce' => false,
+                    'priority' => 10,
+                ),
+                array(
+                    'callable' => $subscriber2,
+                    'onlyOnce' => false,
+                    'priority' => 0,
+                ),
+                array(
+                    'callable' => $subscriber1,
+                    'onlyOnce' => false,
+                    'priority' => -10,
+                ),
+            ),
+            self::POST_FOO => array(
+                array(
+                    'callable' => $subscriber6,
+                    'onlyOnce' => false,
+                    'priority' => 10,
+                ),
+                array(
+                    'callable' => $subscriber5,
+                    'onlyOnce' => false,
+                    'priority' => 0,
+                ),
+                array(
+                    'callable' => $subscriber4,
+                    'onlyOnce' => false,
+                    'priority' => -10,
+                ),
+            ),
         );
 
-        $this->assertSame($expected, $this->manager->getSubscribers());
+        self::assertSame($expected, $this->manager->getSubscribers());
     }
 
     /*
     public function testGetListenerPriority()
     {
-        $subscriber1 = new TestSubscriber();
-        $subscriber2 = new TestSubscriber();
+        $subscriber1 = new Fixture\Subscriber();
+        $subscriber2 = new Fixture\Subscriber();
 
         $this->manager->subscribe('pre.foo', $subscriber1, -10);
         $this->manager->subscribe('pre.foo', $subscriber2);
 
-        $this->assertSame(-10, $this->manager->getListenerPriority('pre.foo', $subscriber1));
-        $this->assertSame(0, $this->manager->getListenerPriority('pre.foo', $subscriber2));
-        $this->assertNull($this->manager->getListenerPriority('pre.bar', $subscriber2));
-        $this->assertNull($this->manager->getListenerPriority('pre.foo', function () {}));
+        self::assertSame(-10, $this->manager->getListenerPriority('pre.foo', $subscriber1));
+        self::assertSame(0, $this->manager->getListenerPriority('pre.foo', $subscriber2));
+        self::assertNull($this->manager->getListenerPriority('pre.bar', $subscriber2));
+        self::assertNull($this->manager->getListenerPriority('pre.foo', function () {}));
     }
     */
 
@@ -187,30 +260,30 @@ class ManagerTest extends TestCase
         $this->manager->subscribe(self::PRE_FOO, array($this->testSubscriber, 'preFoo'));
         $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'));
         $this->manager->publish(self::PRE_FOO);
-        $this->assertTrue($this->testSubscriber->preFooInvoked);
-        $this->assertFalse($this->testSubscriber->postFooInvoked);
-        $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish('noevent'));
-        $this->assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish(self::PRE_FOO));
+        self::assertSame(1, $this->testSubscriber->preFooInvoked);
+        self::assertSame(0, $this->testSubscriber->postFooInvoked);
+        self::assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish('noevent'));
+        self::assertInstanceOf('bdk\\PubSub\\Event', $this->manager->publish(self::PRE_FOO));
         $event = new Event();
         $return = $this->manager->publish(self::PRE_FOO, $event);
-        $this->assertSame($event, $return);
+        self::assertSame($event, $return);
     }
 
     public function testPublishForClosure()
     {
         $invoked = 0;
-        $subscriber = function () use (&$invoked) {
+        $subscriber = static function () use (&$invoked) {
             ++$invoked;
         };
         $this->manager->subscribe(self::PRE_FOO, $subscriber);
         $this->manager->subscribe(self::POST_FOO, $subscriber);
         $this->manager->publish(self::PRE_FOO);
-        $this->assertEquals(1, $invoked);
+        self::assertEquals(1, $invoked);
     }
 
     public function testStopEventPropagation()
     {
-        $otherListener = new TestSubscriber();
+        $otherListener = new Fixture\Subscriber();
 
         // postFoo() stops the propagation, so only one subscriber should
         // be executed
@@ -218,110 +291,158 @@ class ManagerTest extends TestCase
         $this->manager->subscribe(self::POST_FOO, array($this->testSubscriber, 'postFoo'), 10);
         $this->manager->subscribe(self::POST_FOO, array($otherListener, 'preFoo'));
         $this->manager->publish(self::POST_FOO);
-        $this->assertTrue($this->testSubscriber->postFooInvoked);
-        $this->assertFalse($otherListener->postFooInvoked);
+        self::assertSame(1, $this->testSubscriber->postFooInvoked);
+        self::assertSame(0, $otherListener->postFooInvoked);
     }
 
     public function testPublishByPriority()
     {
         $invoked = array();
-        $subscriber1 = function () use (&$invoked) {
+        $subscriber1 = static function () use (&$invoked) {
             $invoked[] = '1';
         };
-        $subscriber2 = function () use (&$invoked) {
+        $subscriber2 = static function () use (&$invoked) {
             $invoked[] = '2';
         };
-        $subscriber3 = function () use (&$invoked) {
+        $subscriber3 = static function () use (&$invoked) {
             $invoked[] = '3';
         };
         $this->manager->subscribe(self::PRE_FOO, $subscriber1, -10);
         $this->manager->subscribe(self::PRE_FOO, $subscriber2);
         $this->manager->subscribe(self::PRE_FOO, $subscriber3, 10);
         $this->manager->publish(self::PRE_FOO);
-        $this->assertEquals(array('3', '2', '1'), $invoked);
+        self::assertEquals(array('3', '2', '1'), $invoked);
     }
 
     public function testUnsubscribe()
     {
         $this->manager->subscribe(self::PRE_BAR, array($this->testSubscriber, 'preFoo'));
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_BAR));
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_BAR));
         $this->manager->unsubscribe(self::PRE_BAR, array($this->testSubscriber, 'preFoo'));
-        $this->assertFalse($this->manager->hasSubscribers(self::PRE_BAR));
+        self::assertFalse($this->manager->hasSubscribers(self::PRE_BAR));
         $this->manager->unsubscribe('notExists', array($this->testSubscriber, 'preFoo'));
     }
 
     public function testAddSubscriberInterface()
     {
-        $eventSubscriber = new TestSubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterface();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testAddSubscriberInterfaceWithPriorities()
     {
-        $eventSubscriber = new TestSubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterface();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
-        $eventSubscriber = new TestSubscriberInterfaceWithPriorities();
+        $eventSubscriber = new Fixture\SubscriberInterfaceWithPriorities();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
         $subscribers = $this->manager->getSubscribers(self::PRE_FOO);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertCount(2, $subscribers);
-        $this->assertInstanceOf('bdk\\PubSubTests\\TestSubscriberInterfaceWithPriorities', $subscribers[0][0]);
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertCount(2, $subscribers);
+        self::assertInstanceOf('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceWithPriorities', $subscribers[0]['callable'][0]);
     }
 
     public function testAddSubscriberInterfaceWithMultipleSubscribers()
     {
-        $eventSubscriber = new TestSubscriberInterfaceWithMultipleSubscribers();
+        $eventSubscriber = new Fixture\SubscriberInterfaceWithMultipleSubscribers();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
         $subscribers = $this->manager->getSubscribers(self::PRE_FOO);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertCount(2, $subscribers);
-        $this->assertEquals('preFoo2', $subscribers[0][1]);
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertCount(2, $subscribers);
+        self::assertEquals('preFoo2', $subscribers[0]['callable'][1]);
+    }
+
+    public function testSubscriberInterfaceException()
+    {
+        $caughtException = false;
+        try {
+            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber->getSubscriptionsReturn = new \stdClass();
+            $this->manager->addSubscriberInterface($eventSubscriber);
+        } catch (\RuntimeException $e) {
+            $caughtException = true;
+            self::assertSame('Expected array from bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions().  Got stdClass', $e->getMessage());
+        }
+        self::assertTrue($caughtException, 'Expected RuntimeException');
+    }
+
+    public function testSubscriberInterfaceException2()
+    {
+        $caughtException = false;
+        try {
+            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber->getSubscriptionsReturn = array(
+                'eventName' => false,
+            );
+            $this->manager->addSubscriberInterface($eventSubscriber);
+        } catch (\RuntimeException $e) {
+            $caughtException = true;
+            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+        }
+        self::assertTrue($caughtException, 'Expected RuntimeException');
+    }
+
+    public function testSubscriberInterfaceException3()
+    {
+        $caughtException = false;
+        try {
+            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber->getSubscriptionsReturn = array(
+                'eventName' => array(
+                    false,
+                ),
+            );
+            $this->manager->addSubscriberInterface($eventSubscriber);
+        } catch (\RuntimeException $e) {
+            $caughtException = true;
+            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+        }
+        self::assertTrue($caughtException, 'Expected RuntimeException');
     }
 
     public function testRemoveSubscriberInterface()
     {
-        $eventSubscriber = new TestSubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterface();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertTrue($this->manager->hasSubscribers(self::POST_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertFalse($this->manager->hasSubscribers(self::POST_FOO));
+        self::assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertFalse($this->manager->hasSubscribers(self::POST_FOO));
     }
 
     public function testRemoveSubscriberInterfaceWithPriorities()
     {
-        $eventSubscriber = new TestSubscriberInterfaceWithPriorities();
+        $eventSubscriber = new Fixture\SubscriberInterfaceWithPriorities();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
     }
 
     public function testRemoveSubscriberInterfaceWithMultipleSubscribers()
     {
-        $eventSubscriber = new TestSubscriberInterfaceWithMultipleSubscribers();
+        $eventSubscriber = new Fixture\SubscriberInterfaceWithMultipleSubscribers();
         $this->manager->addSubscriberInterface($eventSubscriber);
-        $this->assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
-        $this->assertCount(2, $this->manager->getSubscribers(self::PRE_FOO));
+        self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertCount(2, $this->manager->getSubscribers(self::PRE_FOO));
         $this->manager->removeSubscriberInterface($eventSubscriber);
-        $this->assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
+        self::assertFalse($this->manager->hasSubscribers(self::PRE_FOO));
     }
 
     public function testEventReceivesTheManagerInstanceAsArgument()
     {
-        $subscriber = new TestWithManager();
+        $subscriber = new Fixture\WithManager();
         $this->manager->subscribe('test', array($subscriber, 'foo'));
-        $this->assertNull($subscriber->name);
-        $this->assertNull($subscriber->manager);
+        self::assertNull($subscriber->name);
+        self::assertNull($subscriber->manager);
         $this->manager->publish('test');
-        $this->assertEquals('test', $subscriber->name);
-        $this->assertSame($this->manager, $subscriber->manager);
+        self::assertSame('test', $subscriber->name);
+        self::assertSame($this->manager, $subscriber->manager);
     }
 
     /**
@@ -337,201 +458,126 @@ class ManagerTest extends TestCase
     public function testWorkaroundForPhpBug62976()
     {
         $manager = $this->createManager();
-        $manager->subscribe('bug.62976', new CallableClass());
-        $manager->unsubscribe('bug.62976', function () {
+        $manager->subscribe('bug.62976', new Fixture\CallableClass());
+        $manager->unsubscribe('bug.62976', static function () {
         });
-        $this->assertTrue($manager->hasSubscribers('bug.62976'));
+        self::assertTrue($manager->hasSubscribers('bug.62976'));
     }
 
     public function testHasListenersWhenAddedCallbackListenerIsRemoved()
     {
-        $subscriber = function () {
+        $subscriber = static function () {
         };
         $this->manager->subscribe('foo', $subscriber);
         $this->manager->unsubscribe('foo', $subscriber);
-        $this->assertFalse($this->manager->hasSubscribers());
+        self::assertFalse($this->manager->hasSubscribers());
     }
 
     public function testGetListenersWhenAddedCallbackListenerIsRemoved()
     {
-        $subscriber = function () {
+        $subscriber = static function () {
         };
         $this->manager->subscribe('foo', $subscriber);
         $this->manager->unsubscribe('foo', $subscriber);
-        $this->assertSame(array(), $this->manager->getSubscribers());
+        self::assertSame(array(), $this->manager->getSubscribers());
     }
 
     public function testHasListenersWithoutEventsReturnsFalseAfterHasListenersWithEventHasBeenCalled()
     {
-        $this->assertFalse($this->manager->hasSubscribers('foo'));
-        $this->assertFalse($this->manager->hasSubscribers());
+        self::assertFalse($this->manager->hasSubscribers('foo'));
+        self::assertFalse($this->manager->hasSubscribers());
     }
 
     public function testHasListenersIsLazy()
     {
         $called = 0;
-        $subscriber = array(function () use (&$called) {
+        $subscriber = array(static function () use (&$called) {
             ++$called;
         }, 'onFoo');
         $this->manager->subscribe('foo', $subscriber);
-        $this->assertTrue($this->manager->hasSubscribers());
-        $this->assertTrue($this->manager->hasSubscribers('foo'));
-        $this->assertSame(0, $called);
+        self::assertTrue($this->manager->hasSubscribers());
+        self::assertTrue($this->manager->hasSubscribers('foo'));
+        self::assertSame(0, $called);
     }
 
     public function testPublishLazyListener()
     {
         $called = 0;
-        $factory = function () use (&$called) {
+        $factory = static function () use (&$called) {
             ++$called;
-            return new TestWithManager();
+            return new Fixture\Subscriber();
         };
-        $this->manager->subscribe('foo', array($factory, 'foo'));
-        $this->assertSame(0, $called);
-        $this->manager->publish('foo', new Event());
-        $this->manager->publish('foo', new Event());
-        $this->assertSame(1, $called);
+        $this->manager->subscribe(self::PRE_FOO, array($factory, 'preFoo'));
+        self::assertSame(0, $called);
+        $this->manager->publish(self::PRE_FOO, new Event());
+        $this->manager->publish(self::PRE_FOO, new Event());
+        self::assertSame(1, $called);
     }
 
     public function testRemoveFindsLazyListeners()
     {
-        $test = new TestWithManager();
-        $factory = function () use ($test) {
+        $test = new Fixture\Subscriber();
+        $factory = static function () use ($test) {
             return $test;
         };
 
         $this->manager->subscribe('foo', array($factory, 'foo'));
-        $this->assertTrue($this->manager->hasSubscribers('foo'));
+        self::assertTrue($this->manager->hasSubscribers('foo'));
         $this->manager->unsubscribe('foo', array($test, 'foo'));
-        $this->assertFalse($this->manager->hasSubscribers('foo'));
+        self::assertFalse($this->manager->hasSubscribers('foo'));
 
         $this->manager->subscribe('foo', array($test, 'foo'));
-        $this->assertTrue($this->manager->hasSubscribers('foo'));
+        self::assertTrue($this->manager->hasSubscribers('foo'));
         $this->manager->unsubscribe('foo', array($factory, 'foo'));
-        $this->assertFalse($this->manager->hasSubscribers('foo'));
+        self::assertFalse($this->manager->hasSubscribers('foo'));
     }
 
     /*
     public function testPriorityFindsLazyListeners()
     {
-        $test = new TestWithManager();
+        $test = new Fixture\WithManager();
         $factory = function () use ($test) { return $test; };
 
         $this->manager->subscribe('foo', array($factory, 'foo'), 3);
-        $this->assertSame(3, $this->manager->getListenerPriority('foo', array($test, 'foo')));
+        self::assertSame(3, $this->manager->getListenerPriority('foo', array($test, 'foo')));
         $this->manager->unsubscribe('foo', array($factory, 'foo'));
 
         $this->manager->subscribe('foo', array($test, 'foo'), 5);
-        $this->assertSame(5, $this->manager->getListenerPriority('foo', array($factory, 'foo')));
+        self::assertSame(5, $this->manager->getListenerPriority('foo', array($factory, 'foo')));
     }
     */
 
     public function testGetLazyListeners()
     {
-        $test = new TestWithManager();
-        $factory = function () use ($test) {
+        $test = new Fixture\Subscriber();
+        $factory = static function () use ($test) {
             return $test;
         };
 
         $this->manager->subscribe('foo', array($factory, 'foo'), 3);
-        $this->assertSame(array(array($test, 'foo')), $this->manager->getSubscribers('foo'));
+        self::assertSame(array(
+            array(
+                'callable' => array($test, 'foo'),
+                'onlyOnce' => false,
+                'priority' => 3,
+            ),
+        ), $this->manager->getSubscribers('foo'));
 
         $this->manager->unsubscribe('foo', array($test, 'foo'));
         $this->manager->subscribe('bar', array($factory, 'foo'), 3);
-        $this->assertSame(array('bar' => array(array($test, 'foo'))), $this->manager->getSubscribers());
+        self::assertSame(array(
+            'bar' => array(
+                array(
+                    'callable' => array($test, 'foo'),
+                    'onlyOnce' => false,
+                    'priority' => 3,
+                ),
+            ),
+        ), $this->manager->getSubscribers());
     }
 
     protected function createManager()
     {
         return new Manager();
-    }
-}
-
-class CallableClass
-{
-    public function __invoke()
-    {
-    }
-}
-
-class TestSubscriber
-{
-    public $preFooInvoked = false;
-    public $postFooInvoked = false;
-
-    /*
-        Subscribe methods
-    */
-
-    public function preFoo(Event $e)
-    {
-        $this->preFooInvoked = true;
-    }
-
-    public function postFoo(Event $e)
-    {
-        $this->postFooInvoked = true;
-
-        $e->stopPropagation();
-    }
-}
-
-class TestInvokable
-{
-    private $outString = '';
-    public function __construct($outString)
-    {
-        $this->outString = $outString;
-    }
-    public function __invoke()
-    {
-        echo $this->outString;
-    }
-}
-
-class TestWithManager
-{
-    public $name;
-    public $manager;
-
-    public function foo(Event $e, $name, $manager)
-    {
-        $this->name = $name;
-        $this->manager = $manager;
-    }
-}
-
-class TestSubscriberInterface implements SubscriberInterface
-{
-    public function getSubscriptions()
-    {
-        return array(
-            'pre.foo' => 'preFoo',
-            'post.foo' => 'postFoo',
-        );
-    }
-}
-
-class TestSubscriberInterfaceWithPriorities implements SubscriberInterface
-{
-    public function getSubscriptions()
-    {
-        return array(
-            'pre.foo' => array('preFoo', 10),
-            'post.foo' => array('postFoo'),
-        );
-    }
-}
-
-class TestSubscriberInterfaceWithMultipleSubscribers implements SubscriberInterface
-{
-    public function getSubscriptions()
-    {
-        return array(
-            'pre.foo' => array(
-                array('preFoo1'),
-                array('preFoo2', 10),
-            ),
-        );
     }
 }
