@@ -45,8 +45,8 @@ class EventTest extends TestCase
      */
     public function testConstruct()
     {
-        $this->assertSame($this, $this->event->getSubject());
-        $this->assertSame(array(
+        self::assertSame($this, $this->event->getSubject());
+        self::assertSame(array(
             'foo' => 'bar',
             'ding' => 'dong',
             'mellow' => 'yellow',
@@ -69,28 +69,13 @@ class EventTest extends TestCase
             }
         }
 
-        \ob_start();
-        \var_dump($this->event);
-        $varDump = \ob_get_clean();
-        $varDump = \preg_replace('/^[^:]+:\d+:\n/', '', $varDump);
-        $varDump = \preg_replace('/\[(\S+)\]=>\n\s*/', '$1 => ', $varDump);
-        $varDump = \preg_replace('/(\S)\s*=>\n\s*/', '$1 => ', $varDump);
-        $varDump = \preg_replace('/(object\([\\\a-z0-9]+\))#\d+ \(\d+\) /i', '$1 ', $varDump);
-        $varDump = \preg_replace('/(class [\\\a-z0-9]+)#\d+ \(\d+\) /i', '$1 ', $varDump);
-        $varDump = \preg_replace('/ => (array|string)\(\d+\) /', ' => ', $varDump);
-        $varDump = \preg_replace('/ => bool\((true|false)\)/', ' => $1', $varDump);
-        $varDump = \preg_replace('/(?:public|protected|private) \$(\w+)/', '$1', $varDump);
-        $varDump = \trim($varDump);
-        $expect = 'class bdk\PubSub\Event {
-  propagationStopped => false
-  subject => "bdk\PubSubTests\EventTest"
-  values => {
-    \'foo\' => "bar"
-    \'ding\' => "dong"
-    \'mellow\' => "yellow"
-  }
-}';
-        $this->assertSame($expect, $varDump);
+        self::assertInstanceOf(__CLASS__, $this->event->getSubject());
+        self::assertSame(array(
+            'foo' => 'bar',
+            'ding' => 'dong',
+            'mellow' => 'yellow',
+        ), $this->event->getValues());
+        self::assertFalse($this->event->isPropagationStopped());
     }
 
     /**
@@ -98,7 +83,7 @@ class EventTest extends TestCase
      */
     public function testGetSubject()
     {
-        $this->assertInstanceOf(__CLASS__, $this->event->getSubject());
+        self::assertInstanceOf(__CLASS__, $this->event->getSubject());
     }
 
     /**
@@ -106,8 +91,8 @@ class EventTest extends TestCase
      */
     public function testGetValue()
     {
-        $this->assertSame('bar', $this->event->getValue('foo'));
-        $this->assertSame(null, $this->event->getValue('undefined'));
+        self::assertSame('bar', $this->event->getValue('foo'));
+        self::assertSame(null, $this->event->getValue('undefined'));
     }
 
     /**
@@ -116,18 +101,18 @@ class EventTest extends TestCase
      */
     public function testGetSetValues()
     {
-        $this->assertSame(array(
+        self::assertSame(array(
             'foo' => 'bar',
             'ding' => 'dong',
             'mellow' => 'yellow',
         ), $this->event->getValues());
-        $this->assertSame('bar', $this->event->getValue('foo'));
-        $this->assertSame('bar', $this->event['foo']);
+        self::assertSame('bar', $this->event->getValue('foo'));
+        self::assertSame('bar', $this->event['foo']);
         $this->event->setValues(array('pizza' => 'pie'));
-        $this->assertSame(array(
+        self::assertSame(array(
             'pizza' => 'pie',
         ), $this->event->getValues());
-        $this->assertFalse($this->event->hasValue('foo'));
+        self::assertFalse($this->event->hasValue('foo'));
     }
 
     /**
@@ -135,8 +120,8 @@ class EventTest extends TestCase
      */
     public function testHasValue()
     {
-        $this->assertTrue($this->event->hasValue('foo'));
-        $this->assertFalse($this->event->hasValue('waldo'));
+        self::assertTrue($this->event->hasValue('foo'));
+        self::assertFalse($this->event->hasValue('waldo'));
     }
 
     /**
@@ -144,8 +129,8 @@ class EventTest extends TestCase
      */
     public function testOffsetExists()
     {
-        $this->assertSame(true, isset($this->event['foo']));
-        $this->assertSame(false, isset($this->event['undefined']));
+        self::assertSame(true, isset($this->event['foo']));
+        self::assertSame(false, isset($this->event['undefined']));
     }
 
     /**
@@ -153,8 +138,8 @@ class EventTest extends TestCase
      */
     public function testOffsetGet()
     {
-        $this->assertSame('bar', $this->event['foo']);
-        $this->assertSame(null, $this->event['undefined']);
+        self::assertSame('bar', $this->event['foo']);
+        self::assertSame(null, $this->event['undefined']);
     }
 
     /**
@@ -164,7 +149,7 @@ class EventTest extends TestCase
      */
     public function testOffsetSet()
     {
-        $this->assertSame('yellow', $this->event->getValue('mellow'));
+        self::assertSame('yellow', $this->event->getValue('mellow'));
     }
 
     /**
@@ -173,7 +158,7 @@ class EventTest extends TestCase
     public function testOffsetUnset()
     {
         unset($this->event['foo'], $this->event['undefined']);
-        $this->assertSame(array(
+        self::assertSame(array(
             'ding' => 'dong',
             'mellow' => 'yellow',
         ), $this->event->getValues());
@@ -188,7 +173,7 @@ class EventTest extends TestCase
         foreach ($this->event as $k => $v) {
             $vals[$k] = $v;
         }
-        $this->assertSame(array(
+        self::assertSame(array(
             'foo' => 'bar',
             'ding' => 'dong',
             'mellow' => 'yellow',
@@ -200,7 +185,7 @@ class EventTest extends TestCase
      */
     public function testIsPropagationStoppedFalse()
     {
-        $this->assertFalse($this->event->isPropagationStopped());
+        self::assertFalse($this->event->isPropagationStopped());
     }
 
     /**
@@ -210,6 +195,6 @@ class EventTest extends TestCase
     public function testStopPropagation()
     {
         $this->event->stopPropagation();
-        $this->assertTrue($this->event->isPropagationStopped());
+        self::assertTrue($this->event->isPropagationStopped());
     }
 }
