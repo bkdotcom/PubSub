@@ -6,8 +6,8 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v2.4
+ * @copyright 2014-2023 Brad Kent
+ * @version   v3.0
  * @link      http://www.github.com/bkdotcom/PubSub
  */
 
@@ -27,6 +27,7 @@ class Manager
 
     private $subscribers = array();
     private $sorted = array();
+    private $subscriberStack = array();
 
     /**
      * Constructor
@@ -180,11 +181,25 @@ class Manager
     {
         unset($this->sorted[$eventName]); // clear the sorted cache
         $this->assertCallable($callable);
-        $this->subscribers[$eventName][$priority][] = array(
+        $subscriberInfoNew = array(
             'callable' => $callable,
             'onlyOnce' => $onlyOnce,
             'priority' => $priority,
         );
+        $this->subscribers[$eventName][$priority][] = $subscriberInfoNew;
+        // add to active event subscribers
+        foreach ($this->subscriberStack as $i1 => $stackInfo) {
+            if ($stackInfo['eventName'] !== $eventName) {
+                continue;
+            }
+            foreach ($stackInfo['subscribers'] as $i2 => $subscriberInfo) {
+                if ($priority > $subscriberInfo['priority']) {
+                    \array_splice($this->subscriberStack[$i1]['subscribers'], $i2, 0, array($subscriberInfoNew));
+                    continue 2;
+                }
+            }
+            $this->subscriberStack[$i1]['subscribers'][] = $subscriberInfoNew;
+        }
     }
 
     /**
@@ -208,6 +223,8 @@ class Manager
         foreach ($priorities as $priority) {
             $this->unsubscribeHelper($eventName, $callable, $priority, false);
         }
+        // remove from any active events
+        $this->unsubscribeActive($eventName, $callable, $priority);
     }
 
     /**
@@ -254,23 +271,31 @@ class Manager
     /**
      * Calls the subscribers of an event.
      *
-     * @param string     $eventName   The name of the event to publish
-     * @param callable[] $subscribers The event subscribers
-     * @param Event      $event       The event object to pass to the subscribers
+     * @param string $eventName   The name of the event to publish
+     * @param array  $subscribers The event subscribers
+     * @param Event  $event       The event object to pass to the subscribers
      *
      * @return void
      */
     protected function doPublish($eventName, $subscribers, Event $event)
     {
-        foreach ($subscribers as $subscriberInfo) {
+        $this->subscriberStack[] = array(
+            'eventName' => $eventName,
+            'subscribers' => $subscribers,
+        );
+        $stackIndex = \count($this->subscriberStack) - 1;
+        $subscribers = &$this->subscriberStack[$stackIndex]['subscribers'];
+        while ($subscribers) {
             if ($event->isPropagationStopped()) {
                 break;
             }
+            $subscriberInfo = \array_shift($subscribers);
             \call_user_func($subscriberInfo['callable'], $event, $eventName, $this);
             if ($subscriberInfo['onlyOnce']) {
                 $this->unsubscribeHelper($eventName, $subscriberInfo['callable'], $subscriberInfo['priority'], true);
             }
         }
+        \array_pop($this->subscriberStack);
     }
 
     /**
@@ -449,6 +474,34 @@ class Manager
     }
 
     /**
+     * Remove callable from active event subscribers
+     *
+     * @param string   $eventName The event we're unsubscribing from
+     * @param callable $callable  callable
+     * @param int      $priority  The priority
+     *
+     * @return void
+     */
+    private function unsubscribeActive($eventName, $callable, $priority)
+    {
+        $search = \array_filter(array(
+            'callable' => $callable,
+            'priority' => $priority,
+        ));
+        foreach ($this->subscriberStack as $i1 => $stackInfo) {
+            if ($stackInfo['eventName'] !== $eventName) {
+                continue;
+            }
+            foreach ($stackInfo['subscribers'] as $i2 => $subscriberInfo) {
+                if (\array_intersect_key($subscriberInfo, $search) !== $search) {
+                    continue;
+                }
+                \array_splice($this->subscriberStack[$i1]['subscribers'], $i2, 1);
+            }
+        }
+    }
+
+    /**
      * Find callable in eventName/priority array and remove it
      *
      * @param string   $eventName The event we're unsubscribing from
@@ -460,11 +513,11 @@ class Manager
      */
     private function unsubscribeHelper($eventName, $callable, $priority, $onlyOnce)
     {
+        $search = \array_filter(array(
+            'callable' => $callable,
+            'onlyOnce' => $onlyOnce,
+        ));
         foreach ($this->subscribers[$eventName][$priority] as $k => $subscriberInfo) {
-            $search = \array_filter(array(
-                'callable' => $callable,
-                'onlyOnce' => $onlyOnce,
-            ));
             if (\array_intersect_key($subscriberInfo, $search) !== $search) {
                 continue;
             }

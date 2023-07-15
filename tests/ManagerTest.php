@@ -149,6 +149,31 @@ class ManagerTest extends TestCase
         ), $this->manager->getSubscribers(self::PRE_FOO));
     }
 
+    public function testSubscribeFromSubscriber()
+    {
+        $called = array();
+        $this->manager->subscribe('eventa', static function (Event $e, $eventName, Manager $manager) use (&$called) {
+            $called[] ='eventa1';
+            $manager->subscribe('eventb', static function (Event $e, $eventName, Manager $manager) use (&$called) {
+                $called[] = 'eventb1';
+                $manager->subscribe('eventa', static function (Event $e) use (&$called) {
+                    $called[] = 'eventa2';
+                });
+                $manager->subscribe('eventa', static function (Event $e) use (&$called) {
+                    $called[] = 'eventa3';
+                }, 1);
+            });
+            $manager->publish('eventb');
+        });
+        $this->manager->publish('eventa');
+        self::assertSame(array(
+            'eventa1',
+            'eventb1',
+            'eventa3',
+            'eventa2',
+        ), $called);
+    }
+
     public function testGetListenersSortsByPriority()
     {
         $subscriber1 = new Fixture\Subscriber();
@@ -322,6 +347,42 @@ class ManagerTest extends TestCase
         self::assertFalse($this->manager->hasSubscribers(self::PRE_BAR));
         $this->manager->unsubscribe('notExists', array($this->testSubscriber, 'preFoo'));
     }
+
+    public function testUnubscribeFromSubscriber()
+    {
+        $called = array();
+        $callables = array(
+            'eventa2' => static function () use (&$called) {
+                $called[] = 'eventa2';
+            },
+            'eventa3' => static function () use (&$called) {
+                $called[] = 'eventa3';
+            },
+            'eventa4' => static function () use (&$called) {
+                $called[] = 'eventa4';
+            },
+        );
+        $this->manager->subscribe('eventa', static function (Event $e, $eventName, Manager $manager) use (&$called, $callables) {
+            $called[] = 'eventa1';
+            $manager->subscribe('eventb', static function (Event $e, $eventName, Manager $manager) use (&$called, $callables) {
+                $called[] = 'eventb1';
+                $manager->unsubscribe('eventa', $callables['eventa3']);
+                $manager->unsubscribe('eventa', $callables['eventa2']);
+            });
+            $manager->publish('eventb');
+        });
+        $this->manager->subscribe('eventa', $callables['eventa2']);
+        $this->manager->subscribe('eventa', $callables['eventa3']);
+        $this->manager->subscribe('eventa', $callables['eventa4']);
+        $this->manager->publish('eventa');
+        self::assertSame(array(
+            'eventa1',
+            'eventb1',
+            'eventa4',
+        ), $called);
+    }
+
+
 
     public function testAddSubscriberInterface()
     {
