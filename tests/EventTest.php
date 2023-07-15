@@ -6,7 +6,7 @@ use bdk\PubSub\Event;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PHPUnit tests for Debug class
+ * PHPUnit tests for PubSub\Event
  *
  * @coversDefaultClass \bdk\PubSub\Event
  * @uses               \bdk\PubSub\Event
@@ -58,24 +58,38 @@ class EventTest extends TestCase
      */
     public function testDebugInfo()
     {
-        if (PHP_VERSION_ID < 50600) {
-            $this->markTestSkipped('__debugInfo introduced in PHP 5.6');
-        }
+        /*
+        $callDirect = false;
         $haveXdebug = \extension_loaded('xdebug');
+        if (PHP_VERSION_ID < 50600) {
+            $callDirect = true;
+        }
         if ($haveXdebug) {
             $xdebugVer = \phpversion('xdebug');
             if (\version_compare($xdebugVer, '3.0.0', '<')) {
-                $this->markTestSkipped('xDebug < 3.0.0 ignores __debugInfo');
+                // xDebug < 3.0.0 ignores __debugInfo
+                $callDirect = true;
             }
         }
+        */
 
-        self::assertInstanceOf(__CLASS__, $this->event->getSubject());
-        self::assertSame(array(
-            'foo' => 'bar',
-            'ding' => 'dong',
-            'mellow' => 'yellow',
-        ), $this->event->getValues());
-        self::assertFalse($this->event->isPropagationStopped());
+        self::assertEquals(array(
+            'propagationStopped' => false,
+            'subject' => __CLASS__,
+            'values' => array(
+                'foo' => 'bar',
+                'ding' => 'dong',
+                'mellow' => 'yellow',
+            ),
+        ), $this->event->__debugInfo());
+
+        self::assertEquals(array(
+            'propagationStopped' => false,
+            'subject' => 'beans',
+            'values' => array(
+                'foo' => 'bar',
+            ),
+        ), (new Event('beans', array('foo' => 'bar')))->__debugInfo());
     }
 
     /**

@@ -7,7 +7,7 @@ use bdk\PubSub\Manager;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PHPUnit tests for Debug class
+ * PHPUnit tests for PubSub/Manager
  *
  * @covers \bdk\PubSub\Manager
  * @uses   \bdk\PubSub\Event
