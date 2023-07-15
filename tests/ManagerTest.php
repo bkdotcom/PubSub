@@ -386,7 +386,7 @@ class ManagerTest extends TestCase
 
     public function testAddSubscriberInterface()
     {
-        $eventSubscriber = new Fixture\SubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterfaceTest();
         $this->manager->addSubscriberInterface($eventSubscriber);
         self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));
@@ -394,7 +394,7 @@ class ManagerTest extends TestCase
 
     public function testAddSubscriberInterfaceWithPriorities()
     {
-        $eventSubscriber = new Fixture\SubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterfaceTest();
         $this->manager->addSubscriberInterface($eventSubscriber);
 
         $eventSubscriber = new Fixture\SubscriberInterfaceWithPriorities();
@@ -421,12 +421,12 @@ class ManagerTest extends TestCase
     {
         $caughtException = false;
         try {
-            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber = new Fixture\SubscriberInterfaceTest();
             $eventSubscriber->getSubscriptionsReturn = new \stdClass();
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('Expected array from bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions().  Got stdClass', $e->getMessage());
+            self::assertSame('Expected array from bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions().  Got stdClass', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
@@ -435,14 +435,14 @@ class ManagerTest extends TestCase
     {
         $caughtException = false;
         try {
-            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber = new Fixture\SubscriberInterfaceTest();
             $eventSubscriber->getSubscriptionsReturn = array(
                 'eventName' => false,
             );
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
@@ -451,7 +451,7 @@ class ManagerTest extends TestCase
     {
         $caughtException = false;
         try {
-            $eventSubscriber = new Fixture\SubscriberInterface();
+            $eventSubscriber = new Fixture\SubscriberInterfaceTest();
             $eventSubscriber->getSubscriptionsReturn = array(
                 'eventName' => array(
                     false,
@@ -460,14 +460,14 @@ class ManagerTest extends TestCase
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterface::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
 
     public function testRemoveSubscriberInterface()
     {
-        $eventSubscriber = new Fixture\SubscriberInterface();
+        $eventSubscriber = new Fixture\SubscriberInterfaceTest();
         $this->manager->addSubscriberInterface($eventSubscriber);
         self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));

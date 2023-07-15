@@ -2,9 +2,9 @@
 
 namespace bdk\PubSubTests\Fixture;
 
-use bdk\PubSub\SubscriberInterface as SubInterface;
+use bdk\PubSub\SubscriberInterface;
 
-class SubscriberInterface implements SubInterface
+class SubscriberInterfaceTest implements SubscriberInterface
 {
     public $getSubscriptionsReturn = array(
         'pre.foo' => 'preFoo',
