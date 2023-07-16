@@ -20,14 +20,8 @@ use RuntimeException;
 /**
  * Support methods for manager
  */
-abstract class AbstractManager
+trait ManagerHelperTrait
 {
-    const DEFAULT_PRIORITY = 0;
-
-    protected $subscribers = array();
-    protected $sorted = array();
-    protected $subscriberStack = array();
-
     /**
      * Test if value is a callable or "closure factory"
      *
@@ -37,7 +31,7 @@ abstract class AbstractManager
      *
      * @throws InvalidArgumentException
      */
-    protected static function assertCallable($val)
+    private static function assertCallable($val)
     {
         if (\is_callable($val, true)) {
             return;
@@ -61,7 +55,7 @@ abstract class AbstractManager
      *
      * @return callable
      */
-    protected function doClosureFactory($closureFactory = array())
+    private function doClosureFactory($closureFactory = array())
     {
         $closureFactory[0] = $closureFactory[0]($this);
         return \count($closureFactory) === 1
@@ -122,7 +116,7 @@ abstract class AbstractManager
      *
      * @throws RuntimeException
      */
-    protected static function getInterfaceSubscribers(SubscriberInterface $interface)
+    private static function getInterfaceSubscribers(SubscriberInterface $interface)
     {
         $subscriptions = $interface->getSubscriptions();
         if (\is_array($subscriptions) === false) {
@@ -156,7 +150,7 @@ abstract class AbstractManager
      *
      * @psalm-assert-if-true array $val
      */
-    protected static function isClosureFactory($val)
+    private static function isClosureFactory($val)
     {
         return \is_array($val) && isset($val[0]) && $val[0] instanceof \Closure;
     }
@@ -259,11 +253,16 @@ abstract class AbstractManager
      *
      * @return void
      */
-    protected function prepSubscribers($eventName)
+    private function prepSubscribers($eventName)
     {
+        if (!isset($this->subscribers[$eventName])) {
+            $this->subscribers[$eventName] = array();
+        }
         \krsort($this->subscribers[$eventName]);
         $this->sorted[$eventName] = array();
-        foreach ($this->subscribers[$eventName] as $priority => $eventSubscribers) {
+        $priorities = \array_keys($this->subscribers[$eventName]);
+        \array_map(function ($priority) use ($eventName) {
+            $eventSubscribers = $this->subscribers[$eventName][$priority];
             foreach ($eventSubscribers as $k => $subscriberInfo) {
                 if ($this->isClosureFactory($subscriberInfo['callable'])) {
                     $subscriberInfo['callable'] = $this->doClosureFactory($subscriberInfo['callable']);
@@ -271,7 +270,7 @@ abstract class AbstractManager
                 }
                 $this->sorted[$eventName][] = $subscriberInfo;
             }
-        }
+        }, $priorities);
     }
 
     /**
@@ -281,7 +280,7 @@ abstract class AbstractManager
      *
      * @return void
      */
-    protected function setSorted($eventName)
+    private function setSorted($eventName)
     {
         if (!isset($this->sorted[$eventName])) {
             $this->prepSubscribers($eventName);
@@ -291,12 +290,12 @@ abstract class AbstractManager
     /**
      * Add subscriber to subscriber stack
      *
-     * @param int   $stackIndex        [description]
-     * @param array $subscriberInfoNew [description]
+     * @param int   $stackIndex        subscriberStack index to add to
+     * @param array $subscriberInfoNew subscriber info (callable, priority, onlyOnce)
      *
      * @return void
      */
-    protected function subscribeActive($stackIndex, array $subscriberInfoNew)
+    private function subscribeActive($stackIndex, array $subscriberInfoNew)
     {
         $eventSubscribers = $this->subscriberStack[$stackIndex]['subscribers'];
         $priority = $subscriberInfoNew['priority'];
@@ -312,27 +311,22 @@ abstract class AbstractManager
     /**
      * Remove callable from active event subscribers
      *
-     * @param string   $eventName The event we're unsubscribing from
-     * @param callable $callable  callable
-     * @param int      $priority  The priority
+     * @param int      $stackIndex subscriberStack index to add to
+     * @param callable $callable   callable
+     * @param int      $priority   The priority
      *
      * @return void
      */
-    protected function unsubscribeActive($eventName, $callable, $priority)
+    private function unsubscribeActive($stackIndex, $callable, $priority)
     {
         $search = \array_filter(array(
             'callable' => $callable,
             'priority' => $priority,
         ));
-        foreach ($this->subscriberStack as $i1 => $stackInfo) {
-            if ($stackInfo['eventName'] !== $eventName) {
-                continue;
-            }
-            foreach ($stackInfo['subscribers'] as $i2 => $subscriberInfo) {
-                if (\array_intersect_key($subscriberInfo, $search) !== $search) {
-                    continue;
-                }
-                \array_splice($this->subscriberStack[$i1]['subscribers'], $i2, 1);
+        $eventSubscribers = $this->subscriberStack[$stackIndex]['subscribers'];
+        foreach ($eventSubscribers as $i => $subscriberInfo) {
+            if (\array_intersect_key($subscriberInfo, $search) === $search) {
+                \array_splice($this->subscriberStack[$stackIndex]['subscribers'], $i, 1);
             }
         }
     }
@@ -347,7 +341,7 @@ abstract class AbstractManager
      *
      * @return void
      */
-    protected function unsubscribeFromPriority($eventName, $callable, $priority, $onlyOnce)
+    private function unsubscribeFromPriority($eventName, $callable, $priority, $onlyOnce)
     {
         $search = \array_filter(array(
             'callable' => $callable,

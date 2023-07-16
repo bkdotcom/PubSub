@@ -13,14 +13,22 @@
 
 namespace bdk\PubSub;
 
+use bdk\PubSub\ManagerHelperTrait;
 use bdk\PubSub\SubscriberInterface;
 
 /**
  * Event publish/subscribe event manager
  */
-class Manager extends AbstractManager
+class Manager
 {
+    use ManagerHelperTrait;
+
+    const DEFAULT_PRIORITY = 0;
     const EVENT_PHP_SHUTDOWN = 'php.shutdown';
+
+    protected $subscribers = array();
+    protected $sorted = array();
+    protected $subscriberStack = array();
 
     /**
      * Constructor
@@ -193,9 +201,6 @@ class Manager extends AbstractManager
      */
     public function unsubscribe($eventName, $callable)
     {
-        if (!isset($this->subscribers[$eventName])) {
-            return;
-        }
         if ($this->isClosureFactory($callable)) {
             $callable = $this->doClosureFactory($callable);
         }
@@ -205,6 +210,10 @@ class Manager extends AbstractManager
             $this->unsubscribeFromPriority($eventName, $callable, $priority, false);
         }
         // remove from any active events
-        $this->unsubscribeActive($eventName, $callable, $priority);
+        foreach ($this->subscriberStack as $i => $stackInfo) {
+            if ($stackInfo['eventName'] === $eventName) {
+                $this->unsubscribeActive($i, $callable, $priority);
+            }
+        }
     }
 }
