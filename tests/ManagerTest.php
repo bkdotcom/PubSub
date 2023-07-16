@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * PHPUnit tests for PubSub/Manager
  *
+ * @covers \bdk\PubSub\AbstractManager
  * @covers \bdk\PubSub\Manager
  * @uses   \bdk\PubSub\Event
  */
