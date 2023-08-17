@@ -9,7 +9,7 @@ It is installable and autoloadable via [Composer](https://getcomposer.org/) as [
 ```json
 {
     "require": {
-        "bdk/pubsub": "^3.0",
+        "bdk/pubsub": "^3.1",
     }
 }
 ```

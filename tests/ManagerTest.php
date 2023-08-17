@@ -383,14 +383,41 @@ class ManagerTest extends TestCase
         ), $called);
     }
 
-
-
     public function testAddSubscriberInterface()
     {
         $eventSubscriber = new Fixture\SubscriberInterfaceTest();
         $this->manager->addSubscriberInterface($eventSubscriber);
         self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         self::assertTrue($this->manager->hasSubscribers(self::POST_FOO));
+    }
+
+    public function testAddSubscriberInterfaceWithClosure()
+    {
+        $called = array();
+        $eventSubscriber = new Fixture\SubscriberInterfaceTest();
+        $eventSubscriber->getSubscriptionsReturn = array(
+            'dingle' => static function (Event $event) use (&$called) {
+                $called[] = 'dingle';
+            },
+            'berry' => array(
+                static function (Event $event) use (&$called) {
+                    $called[] = 'berry1';
+                },
+                array(static function (Event $event) use (&$called) {
+                    // higher priority / only called once
+                    $called[] = 'berry2';
+                }, 1, true),
+            ),
+        );
+        $this->manager->addSubscriberInterface($eventSubscriber);
+        $this->manager->publish('dingle');
+        $this->manager->publish('berry');
+        self::assertSame(array(
+            'dingle',
+            'berry2',
+            'berry1',
+        ), $called);
+        self::assertCount(1, $this->manager->getSubscribers('berry'));
     }
 
     public function testAddSubscriberInterfaceWithPriorities()
