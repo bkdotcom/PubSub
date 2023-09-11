@@ -30,6 +30,12 @@ class ValueStoreTest extends TestCase
     {
     }
 
+    public function testOffsetGetGetter()
+    {
+        $fixture = new \bdk\PubSubTests\Fixture\ValueStore();
+        self::assertSame('bar', $fixture['foo']);
+    }
+
     public function testOffsetSetAppend()
     {
         $valueStore = new Fixture\ValueStore(array(

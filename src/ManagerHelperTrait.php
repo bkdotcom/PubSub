@@ -7,7 +7,7 @@
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
  * @copyright 2014-2023 Brad Kent
- * @version   v3.0
+ * @version   v3.1
  * @link      http://www.github.com/bkdotcom/PubSub
  */
 
@@ -153,7 +153,7 @@ trait ManagerHelperTrait
      */
     private static function isClosureFactory($val)
     {
-        return \is_array($val) && isset($val[0]) && $val[0] instanceof \Closure;
+        return \is_array($val) && isset($val[0]) && $val[0] instanceof Closure;
     }
 
     /**
