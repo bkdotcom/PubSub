@@ -9,12 +9,12 @@ $classMap = array(
     'PHPUnit_Framework_Constraint_IsType' => 'PHPUnit\Framework\Constraint\IsType',
 );
 foreach ($classMap as $old => $new) {
-    if (!class_exists($new)) {
-        class_alias($old, $new);
+    if (\class_exists($new) === false) {
+        \class_alias($old, $new);
     }
 }
 
 require __DIR__.'/../vendor/autoload.php';
 
-$modifyTests = new \bdk\PubSubTests\ModifyTests();
+$modifyTests = new \bdk\DevUtil\ModifyTests();
 $modifyTests->modify(__DIR__);

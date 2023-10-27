@@ -81,6 +81,30 @@ class ManagerTest extends TestCase
         self::assertTrue($caughtException);
     }
 
+    public function testEventReceivesSubscriberReturn()
+    {
+        $this->manager->subscribe('foo', static function () {
+            return 'return value';
+        });
+
+        // populate return
+        $event = $this->manager->publish('foo', null, array(
+            'return' => null,
+        ));
+        self::assertSame('return value', $event['return']);
+
+        // don't populate if already populated
+        $event = $this->manager->publish('foo', null, array(
+            'return' => 0,
+        ));
+        self::assertSame(0, $event['return']);
+
+        // don't populate if return isn't defined
+        $event = $this->manager->publish('foo', null, array(
+        ));
+        self::assertSame(null, $event['return']);
+    }
+
     public function testInvokable()
     {
         $str = 'testInvokable1';
