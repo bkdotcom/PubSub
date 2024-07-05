@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests\Fixture;
+namespace bdk\Test\PubSub\Fixture;
 
 class CallableClass
 {

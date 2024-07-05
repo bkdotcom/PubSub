@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
+ * @copyright 2014-2024 Brad Kent
  * @version   v3.0
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -25,18 +25,24 @@ use Serializable;
  * Note:
  *   The Serializable interface - since PHP 5.1.  Deprecated in php 8.1
  *   __serialize and __unserialize magic methods : since PHP 7.4
+ *
+ * @template TKey   of array-key
+ * @template TValue of mixed
+ *
+ * @template-implements ArrayAccess<TKey, TValue>
+ * @template-implements IteratorAggregate<TKey, TValue>
  */
 class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Serializable
 {
     /**
-     * @var array Array of key/values
+     * @var array<TKey,TValue> Array of key/values
      */
     protected $values = array();
 
     /**
      * Constructor
      *
-     * @param array $values Values to store
+     * @param array<TKey,TValue> $values Values to store
      */
     public function __construct(array $values = array())
     {
@@ -57,21 +63,22 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
      * Serialize magic method
      * (since php 7.4)
      *
-     * @return array
+     * @return array<TKey,TValue>
      */
     public function __serialize()
     {
+        \ksort($this->values);
         return $this->values;
     }
 
     /**
      * Unserialize
      *
-     * @param array $data serialized data
+     * @param array<TKey,TValue> $data serialized data
      *
      * @return void
      */
-    public function __unserialize($data)
+    public function __unserialize(array $data)
     {
         $this->values = $data;
     }
@@ -79,9 +86,9 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * Get value by key.
      *
-     * @param string $key Value name
+     * @param TKey $key Value name
      *
-     * @return mixed
+     * @return TValue|null
      */
     public function getValue($key)
     {
@@ -91,17 +98,18 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * Get all stored values
      *
-     * @return array
+     * @return array<TKey,TValue>
      */
     public function getValues()
     {
+        \ksort($this->values);
         return $this->values;
     }
 
     /**
      * Does specified key have a value?
      *
-     * @param string $key Value name
+     * @param TKey $key Value name
      *
      * @return bool
      */
@@ -113,8 +121,8 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * Set event value
      *
-     * @param string $key   Value name
-     * @param mixed  $value Value
+     * @param TKey   $key   Value name
+     * @param TValue $value Value
      *
      * @return $this
      */
@@ -127,7 +135,7 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * Clears existing values and sets new values
      *
-     * @param array $values key=>value array of values
+     * @param array<TKey,TValue> $values key=>value array of values
      *
      * @return $this
      */
@@ -141,11 +149,12 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * Implements JsonSerializable
      *
-     * @return array
+     * @return array<TKey,TValue>
      */
     #[\ReturnTypeWillChange]
     public function jsonSerialize()
     {
+        \ksort($this->values);
         return $this->values;
     }
 
@@ -168,28 +177,38 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
      */
     public function unserialize($data)
     {
-        $this->__unserialize(\unserialize($data));
+        /** @var mixed */
+        $unserialized = \unserialize($data);
+        if (\is_array($unserialized)) {
+            $this->__unserialize($unserialized);
+        }
     }
 
     /**
      * ArrayAccess hasValue.
      *
-     * @param string $key Array key
+     * @param TKey $key Array key
      *
      * @return bool
      */
     #[\ReturnTypeWillChange]
     public function offsetExists($key)
     {
-        return isset($this->values[$key]);
+        if (isset($this->values[$key])) {
+            return true;
+        }
+        $getter = $this->getter($key);
+        return $getter
+            ? $this->{$getter}() !== null
+            : false;
     }
 
     /**
      * ArrayAccess getValue.
      *
-     * @param string $key Array key
+     * @param TKey $key Array key
      *
-     * @return mixed
+     * @return TValue|null
      */
     #[\ReturnTypeWillChange]
     public function &offsetGet($key)
@@ -198,8 +217,9 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
             return $this->values[$key];
         }
         $return = null;
-        $getter = 'get' . \ucfirst($key);
-        if (\method_exists($this, $getter)) {
+        $getter = $this->getter($key);
+        if ($getter) {
+            /** @var TValue */
             $return = $this->{$getter}();
         }
         return $return;
@@ -208,30 +228,31 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     /**
      * ArrayAccess setValue
      *
-     * @param string $key   Array key to set
-     * @param mixed  $value Value
+     * @param TKey   $offset Array key to set
+     * @param TValue $value  Value
      *
      * @return void
      */
     #[\ReturnTypeWillChange]
-    public function offsetSet($key, $value)
+    public function offsetSet($offset, $value)
     {
-        if ($key === null) {
+        if ($offset === null) {
             // appending...  determine key
             $this->values[] = $value;
             \end($this->values);
-            $key = \key($this->values);
+            $offset = \key($this->values);
         }
-        $this->values[$key] = $value;
+        /** @psalm-var TKey $offset */
+        $this->values[$offset] = $value;
         $this->onSet(array(
-            $key => $value,
+            $offset => $value,
         ));
     }
 
     /**
      * ArrayAccess interface
      *
-     * @param string $key Array key
+     * @param TKey $key Array key
      *
      * @return void
      */
@@ -246,7 +267,7 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
      *
      * Iterate over the object like an array.
      *
-     * @return ArrayIterator
+     * @return ArrayIterator<TKey,TValue>
      */
     #[\ReturnTypeWillChange]
     public function getIterator()
@@ -255,13 +276,31 @@ class ValueStore implements ArrayAccess, IteratorAggregate, JsonSerializable, Se
     }
 
     /**
+     * Return the getter method for the given key
+     *
+     * @param TKey $key Array key
+     *
+     * @return string|false
+     */
+    private function getter($key)
+    {
+        $key = (string) $key;
+        $getter = \preg_match('/^is[A-Z]/', $key)
+            ? $key
+            : 'get' . \ucfirst($key);
+        return \method_exists($this, $getter)
+            ? $getter
+            : false;
+    }
+
+    /**
      * Extend me to perform action after setting value/values
      *
-     * @param array $values key => values  being set
+     * @param array<TKey,TValue> $values key => values  being set
      *
      * @return void
      *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @psalm-suppress PossiblyUnusedParam
      */
     protected function onSet($values = array())
     {

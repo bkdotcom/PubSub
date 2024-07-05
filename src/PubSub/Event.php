@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
+ * @copyright 2014-2024 Brad Kent
  * @version   v3.0
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -16,25 +16,31 @@ namespace bdk\PubSub;
 /**
  * Event
  *
- * Events are passed to event subscribres/listeners
+ * Events are passed to event subscribers/listeners
+ *
+ * @template Subject of mixed
+ * @template TKey    of array-key
+ * @template TValue  of mixed
+ *
+ * @template-extends ValueStore<TKey, TValue>
  */
 class Event extends ValueStore
 {
+    /**
+     * @var Subject Event subject - usually object or callable
+     */
+    protected $subject = null;
+
     /**
      * @var bool Whether event subscribers should be called
      */
     private $propagationStopped = false;
 
     /**
-     * @var mixed Event subject: usually object or callable
-     */
-    protected $subject = null;
-
-    /**
      * Construct an event with optional subject and values
      *
-     * @param mixed $subject The subject of the event (usually an object)
-     * @param array $values  Values to store in the event
+     * @param Subject            $subject The subject of the event (usually an object)
+     * @param array<TKey,TValue> $values  Values to store in the event
      */
     public function __construct($subject = null, array $values = array())
     {
@@ -45,7 +51,11 @@ class Event extends ValueStore
     /**
      * Magic Method
      *
-     * @return array
+     * @return array{
+     *    propagationStopped: bool,
+     *    subject: class-string|mixed,
+     *    values: array<TKey, TValue>,
+     * }
      */
     public function __debugInfo()
     {
@@ -61,7 +71,7 @@ class Event extends ValueStore
     /**
      * Get Event's "subject"
      *
-     * @return mixed The observer subject
+     * @return Subject The observer subject
      */
     public function getSubject()
     {

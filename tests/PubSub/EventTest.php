@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests;
+namespace bdk\Test\PubSub;
 
 use bdk\PubSub\Event;
 use PHPUnit\Framework\TestCase;
@@ -47,8 +47,8 @@ class EventTest extends TestCase
     {
         self::assertSame($this, $this->event->getSubject());
         self::assertSame(array(
-            'foo' => 'bar',
             'ding' => 'dong',
+            'foo' => 'bar',
             'mellow' => 'yellow',
         ), $this->event->getValues());
     }
@@ -116,8 +116,8 @@ class EventTest extends TestCase
     public function testGetSetValues()
     {
         self::assertSame(array(
-            'foo' => 'bar',
             'ding' => 'dong',
+            'foo' => 'bar',
             'mellow' => 'yellow',
         ), $this->event->getValues());
         self::assertSame('bar', $this->event->getValue('foo'));
@@ -188,8 +188,8 @@ class EventTest extends TestCase
             $vals[$k] = $v;
         }
         self::assertSame(array(
-            'foo' => 'bar',
             'ding' => 'dong',
+            'foo' => 'bar',
             'mellow' => 'yellow',
         ), $vals);
     }

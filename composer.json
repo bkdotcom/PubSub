@@ -18,12 +18,12 @@
     ],
     "autoload": {
         "psr-4": {
-            "bdk\\PubSub\\": "src/"
+            "bdk\\PubSub\\": "src/PubSub/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "bdk\\PubSubTests\\": "tests/"
+            "bdk\\Test\\": "tests/"
         }
     },
     "require": {

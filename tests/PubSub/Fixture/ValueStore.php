@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests\Fixture;
+namespace bdk\Test\PubSub\Fixture;
 
 use bdk\PubSub\ValueStore as ValueStoreBase;
 
@@ -11,6 +11,11 @@ class ValueStore extends ValueStoreBase
     protected function getFoo()
     {
         return 'bar';
+    }
+
+    protected function isGroovy()
+    {
+        return true;
     }
 
     protected function onSet($values = array())

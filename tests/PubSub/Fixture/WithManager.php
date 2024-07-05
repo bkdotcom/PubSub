@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests\Fixture;
+namespace bdk\Test\PubSub\Fixture;
 
 use bdk\PubSub\Event;
 use bdk\PubSub\Manager;

@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests;
+namespace bdk\Test\PubSub;
 
 use bdk\PubSub\ValueStore;
 use PHPUnit\Framework\TestCase;
@@ -32,8 +32,9 @@ class ValueStoreTest extends TestCase
 
     public function testOffsetGetGetter()
     {
-        $fixture = new \bdk\PubSubTests\Fixture\ValueStore();
+        $fixture = new \bdk\Test\PubSub\Fixture\ValueStore();
         self::assertSame('bar', $fixture['foo']);
+        self::assertTrue($fixture['isGroovy']);
     }
 
     public function testOffsetSetAppend()
@@ -45,10 +46,10 @@ class ValueStoreTest extends TestCase
         $valueStore['scale'] = 'banana';
         $valueStore[] = 'bar';
         $this->assertSame(array(
-            'ding' => 'dong',
             0 => 'foo',
-            'scale' => 'banana',
             1 => 'bar',
+            'ding' => 'dong',
+            'scale' => 'banana',
         ), $valueStore->getValues());
         $this->assertSame(array(
             array('ding' => 'dong'),

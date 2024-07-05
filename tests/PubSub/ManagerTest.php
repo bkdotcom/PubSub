@@ -1,6 +1,6 @@
 <?php
 
-namespace bdk\PubSubTests;
+namespace bdk\Test\PubSub;
 
 use bdk\PubSub\Event;
 use bdk\PubSub\Manager;
@@ -9,7 +9,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * PHPUnit tests for PubSub/Manager
  *
- * @covers \bdk\PubSub\ManagerHelperTrait
+ * @covers \bdk\PubSub\AbstractManager
+ * @covers \bdk\PubSub\InterfaceManager
  * @covers \bdk\PubSub\Manager
  * @uses   \bdk\PubSub\Event
  */
@@ -455,7 +456,7 @@ class ManagerTest extends TestCase
         $subscribers = $this->manager->getSubscribers(self::PRE_FOO);
         self::assertTrue($this->manager->hasSubscribers(self::PRE_FOO));
         self::assertCount(2, $subscribers);
-        self::assertInstanceOf('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceWithPriorities', $subscribers[0]['callable'][0]);
+        self::assertInstanceOf('bdk\\Test\\PubSub\\Fixture\\SubscriberInterfaceWithPriorities', $subscribers[0]['callable'][0]);
     }
 
     public function testAddSubscriberInterfaceWithMultipleSubscribers()
@@ -478,7 +479,7 @@ class ManagerTest extends TestCase
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('Expected array from bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions().  Got stdClass', $e->getMessage());
+            self::assertSame('Expected array from bdk\\Test\\PubSub\\Fixture\\SubscriberInterfaceTest::getSubscriptions().  Got stdClass', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
@@ -494,7 +495,7 @@ class ManagerTest extends TestCase
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+            self::assertSame('bdk\\Test\\PubSub\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
@@ -512,7 +513,7 @@ class ManagerTest extends TestCase
             $this->manager->addSubscriberInterface($eventSubscriber);
         } catch (\RuntimeException $e) {
             $caughtException = true;
-            self::assertSame('bdk\\PubSubTests\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
+            self::assertSame('bdk\\Test\\PubSub\\Fixture\\SubscriberInterfaceTest::getSubscriptions():  Unexpected subscriber(s) defined for eventName', $e->getMessage());
         }
         self::assertTrue($caughtException, 'Expected RuntimeException');
     }
@@ -634,14 +635,14 @@ class ManagerTest extends TestCase
             return $test;
         };
 
-        $this->manager->subscribe('foo', array($factory, 'foo'));
+        $this->manager->subscribe('foo', array($factory, 'test'));
         self::assertTrue($this->manager->hasSubscribers('foo'));
-        $this->manager->unsubscribe('foo', array($test, 'foo'));
+        $this->manager->unsubscribe('foo', array($test, 'test'));
         self::assertFalse($this->manager->hasSubscribers('foo'));
 
-        $this->manager->subscribe('foo', array($test, 'foo'));
+        $this->manager->subscribe('foo', array($test, 'test'));
         self::assertTrue($this->manager->hasSubscribers('foo'));
-        $this->manager->unsubscribe('foo', array($factory, 'foo'));
+        $this->manager->unsubscribe('foo', array($factory, 'test'));
         self::assertFalse($this->manager->hasSubscribers('foo'));
     }
 
@@ -667,21 +668,22 @@ class ManagerTest extends TestCase
             return $test;
         };
 
-        $this->manager->subscribe('foo', array($factory, 'foo'), 3);
+        $this->manager->subscribe('foo', array($factory, 'test'), 3);
         self::assertSame(array(
             array(
-                'callable' => array($test, 'foo'),
+                'callable' => array($test, 'test'),
                 'onlyOnce' => false,
                 'priority' => 3,
             ),
         ), $this->manager->getSubscribers('foo'));
 
-        $this->manager->unsubscribe('foo', array($test, 'foo'));
-        $this->manager->subscribe('bar', array($factory, 'foo'), 3);
+        $this->manager->unsubscribe('foo', array($test, 'test'));
+
+        $this->manager->subscribe('bar', array($factory, 'test'), 3);
         self::assertSame(array(
             'bar' => array(
                 array(
-                    'callable' => array($test, 'foo'),
+                    'callable' => array($test, 'test'),
                     'onlyOnce' => false,
                     'priority' => 3,
                 ),
