@@ -7,7 +7,7 @@
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
  * @copyright 2014-2024 Brad Kent
- * @version   v2.4
+ * @since     v2.4
  * @link      http://www.github.com/bkdotcom/PubSub
  */
 
@@ -24,7 +24,7 @@ interface SubscriberInterface
      *  array: (required) _method_, (optional) int priority, (optional) bool onlyOnce)
      *  array: any combination of the above
      *
-     *  _method_ = string|Callable name of public method or Closure
+     *  _method_ = string|Callable name of public method or `Closure`
      *
      * @return array<string,string|array>
      */
