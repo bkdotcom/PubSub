@@ -2,7 +2,7 @@ Event Manager (Publish / Subscribe)
 ===============
 
 ### Installation
-This library supports PHP 5.4 - 8.3 and has no userland dependencies.
+This library supports PHP 5.4 - 8.4 and has no userland dependencies.
 
 It is installable and autoloadable via [Composer](https://getcomposer.org/) as [bdk/pubsub](https://packagist.org/packages/bdk/pubsub).
 

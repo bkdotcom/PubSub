@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2024 Brad Kent
+ * @copyright 2014-2025 Brad Kent
  * @since     v3.1
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -55,7 +55,7 @@ abstract class AbstractManager
         if ($return === null) {
             return;
         }
-        if (\in_array($event['return'], array(null, ''), true) === false) {
+        if (\in_array($event['return'], [null, ''], true) === false) {
             // event already has non-null return value
             return;
         }
@@ -106,7 +106,7 @@ abstract class AbstractManager
     {
         return \is_object($value)
             ? \get_class($value)
-            : \gettype($value);
+            : \strtolower(\gettype($value));
     }
 
     /**
@@ -203,7 +203,7 @@ abstract class AbstractManager
         $priority = $subscriberInfo['priority'];
         foreach ($this->subscriberStack[$stackIndex]['subscribers'] as $i => $subscriberInfoCur) {
             if ($priority > $subscriberInfoCur['priority']) {
-                \array_splice($this->subscriberStack[$stackIndex]['subscribers'], $i, 0, array($subscriberInfo));
+                \array_splice($this->subscriberStack[$stackIndex]['subscribers'], $i, 0, [$subscriberInfo]);
                 return;
             }
         }

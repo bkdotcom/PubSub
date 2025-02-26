@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2024 Brad Kent
+ * @copyright 2014-2025 Brad Kent
  * @since     v3.1
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -73,7 +73,7 @@ class InterfaceManager
     {
         return \is_object($value)
             ? \get_class($value)
-            : \gettype($value);
+            : \strtolower(\gettype($value));
     }
 
     /**
@@ -88,16 +88,16 @@ class InterfaceManager
     {
         // test if single subscriber
         //   ie, 'eventName' => 'method',
-        //      or 'eventName' => array('method'), etc
+        //      or 'eventName' => ['method'], etc
         $subscriberInfo = self::normalizeSubscriber($interface, $mixed);
         if ($subscriberInfo) {
-            return array($subscriberInfo);
+            return [$subscriberInfo];
         }
         if (\is_array($mixed) === false) {
             return false;
         }
         // multiple subscribers
-        $eventSubscribers = array();
+        $eventSubscribers = [];
         /** @var mixed $mixed2 */
         foreach ($mixed as $mixed2) {
             $subscriberInfo = self::normalizeSubscriber($interface, $mixed2);
@@ -127,7 +127,7 @@ class InterfaceManager
             'priority' => Manager::DEFAULT_PRIORITY,
         );
         if (\is_string($mixed)) {
-            $subscriberInfo['callable'] = array($interface, $mixed);
+            $subscriberInfo['callable'] = [$interface, $mixed];
             return $subscriberInfo;
         }
         if ($mixed instanceof Closure) {
@@ -153,7 +153,7 @@ class InterfaceManager
         /** @var mixed */
         $callable = $subscriberInfo['callable'];
         if (\is_string($callable)) {
-            $subscriberInfo['callable'] = array($interface, $callable);
+            $subscriberInfo['callable'] = [$interface, $callable];
         }
         return \is_callable($subscriberInfo['callable'], true)
         	? $subscriberInfo
@@ -161,7 +161,7 @@ class InterfaceManager
     }
 
     /**
-     * Find
+     * Normalize/assign-keys for subscriber array values
      *
      * @param array $values array values
      *
@@ -174,6 +174,7 @@ class InterfaceManager
             'onlyOnce' => false,
             'priority' => Manager::DEFAULT_PRIORITY,
         );
+        /** @var array<string,callable> */
         $tests = array(
             'callable' => static function ($val) {
                 return \is_string($val) || ($val instanceof Closure);
@@ -181,22 +182,39 @@ class InterfaceManager
             'onlyOnce' => 'is_bool',
             'priority' => 'is_int',
         );
-        while ($values && $tests) {
+        while ($values) {
             /** @var mixed */
             $val = \array_shift($values);
-            foreach ($tests as $key => $test) {
-                if ($test($val)) {
-                    /** @var string|Closure|bool|int */
-                    $subscriberInfo[$key] = $val;
-                    unset($tests[$key]);
-                    continue 2;
-                }
+            $key = self::testValue($val, $tests);
+            if ($key) {
+                /** @var string|Closure|bool|int */
+                $subscriberInfo[$key] = $val;
+                unset($tests[$key]);
+                continue; // next value;
             }
-            // all tests failed
+            // all (remaining) tests failed / invalid value found
             $subscriberInfo['callable'] = null;
             break;
         }
         /** @var array{callable:string|Closure|null,onlyOnce:bool,priority:int} */
         return $subscriberInfo;
+    }
+
+    /**
+     * Test value against tests to determine key (callable, onlyOnce, priority)
+     *
+     * @param mixed                  $val   value test
+     * @param array<string,callable> $tests callable tests
+     *
+     * @return string|false key or false if no match
+     */
+    private static function testValue($val, array $tests)
+    {
+        foreach ($tests as $key => $test) {
+            if ($test($val)) {
+                return $key;
+            }
+        }
+        return false;
     }
 }

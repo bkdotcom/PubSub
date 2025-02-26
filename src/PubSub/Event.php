@@ -6,7 +6,7 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2024 Brad Kent
+ * @copyright 2014-2025 Brad Kent
  * @since     v3.0
  * @link      http://www.github.com/bkdotcom/PubSub
  */
@@ -14,7 +14,7 @@
 namespace bdk\PubSub;
 
 /**
- * Event
+ * Represents a basic event
  *
  * Events are passed to event subscribers/listeners
  *
@@ -71,7 +71,7 @@ class Event extends ValueStore
     /**
      * Get Event's "subject"
      *
-     * @return Subject The observer subject
+     * @return Subject Usually the object that published the event
      */
     public function getSubject()
     {
